@@ -89,8 +89,8 @@ def process_data_update(incoming_data):
             corte_id = incoming_data.get('corteId')
             if corte_id:
                 deleted_corte_ids.add(str(corte_id))
-            incoming_cortes = incoming_data.get('cortes', [])
-            final_data['cortes'] = [c for c in incoming_cortes if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
+            existing_cortes = existing_data.get('cortes', [])
+            final_data['cortes'] = [c for c in existing_cortes if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids and str(c.get('id')) != str(corte_id)]
         elif action == 'nuevo_corte':
             nuevo_c = incoming_data.get('corte')
             if nuevo_c and isinstance(nuevo_c, dict) and nuevo_c.get('id'):
@@ -99,9 +99,6 @@ def process_data_update(incoming_data):
             c_map = {str(c['id']): c for c in existing_cortes if 'id' in c}
             if nuevo_c and isinstance(nuevo_c, dict) and 'id' in nuevo_c:
                 c_map[str(nuevo_c['id'])] = nuevo_c
-            for c in incoming_data.get('cortes', []):
-                if isinstance(c, dict) and 'id' in c and str(c['id']) not in deleted_corte_ids:
-                    c_map[str(c['id'])] = c
             merged_c = sorted(list(c_map.values()), key=lambda x: x.get('timestamp', 0), reverse=True)
             final_data['cortes'] = merged_c
         elif action == 'save_cortes':
@@ -117,8 +114,8 @@ def process_data_update(incoming_data):
             cid = incoming_data.get('clienteId')
             if cid:
                 deleted_cliente_ids.add(str(cid))
-            incoming_clientes = incoming_data.get('clientes', [])
-            final_data['clientes'] = [c for c in incoming_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+            existing_clientes = existing_data.get('clientes', [])
+            final_data['clientes'] = [c for c in existing_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids and str(c.get('id')) != str(cid)]
         elif action == 'upsert_cliente':
             nuevo_cliente = incoming_data.get('cliente')
             if nuevo_cliente and isinstance(nuevo_cliente, dict) and nuevo_cliente.get('id'):

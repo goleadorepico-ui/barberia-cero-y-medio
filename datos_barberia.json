@@ -22,28 +22,6 @@
   ],
   "cortes": [
     {
-      "id": "id-mu1ibys4-shho6",
-      "fecha": "2026-09-14",
-      "hora": "14:18",
-      "barberoId": "barbero-1",
-      "barberoNombre": "Laureano",
-      "servicioNombre": "Corte",
-      "monto": 15000,
-      "metodoPago": "EFECTIVO",
-      "timestamp": 1789406337748
-    },
-    {
-      "id": "id-mu1ib6gd-joa9o",
-      "fecha": "2026-09-14",
-      "hora": "14:18",
-      "barberoId": "barbero-1",
-      "barberoNombre": "Laureano",
-      "servicioNombre": "Corte",
-      "monto": 15000,
-      "metodoPago": "EFECTIVO",
-      "timestamp": 1789406301037
-    },
-    {
       "id": "id-mtyxwm9t-l5h43",
       "fecha": "2026-09-12",
       "hora": "19:11",
@@ -92,55 +70,15 @@
   "deleted_cliente_ids": [
     "id-mtyszwk8-xpr0q"
   ],
-  "deleted_corte_ids": [],
+  "deleted_corte_ids": [
+    "id-mu1na45o-0j42u",
+    "id-mu1n98bz-ujmu4",
+    "id-mu1naecb-snzpk",
+    "id-mu1ibys4-shho6",
+    "id-mu1ib6gd-joa9o"
+  ],
   "deleted_turno_ids": [],
   "cierres": [
-    {
-      "id": "id-mu1ic1fg-8trap",
-      "fecha": "2026-09-14",
-      "fechaLegible": "lunes, 14 de septiembre de 2026",
-      "horaCierre": "14:19",
-      "totalGeneral": 30000,
-      "totalEfectivo": 30000,
-      "totalMercadoPago": 0,
-      "totalTransferencia": 0,
-      "totalCortes": 2,
-      "desgloseBarberos": [
-        {
-          "barberoId": "barbero-1",
-          "nombre": "Laureano",
-          "comision": 50,
-          "cortes": 2,
-          "subtotal": 30000,
-          "gananciaBarbero": 15000,
-          "gananciaLocal": 15000
-        }
-      ],
-      "cortes": [
-        {
-          "id": "id-mu1ibys4-shho6",
-          "fecha": "2026-09-14",
-          "hora": "14:18",
-          "barberoId": "barbero-1",
-          "barberoNombre": "Laureano",
-          "servicioNombre": "Corte",
-          "monto": 15000,
-          "metodoPago": "EFECTIVO",
-          "timestamp": 1789406337748
-        },
-        {
-          "id": "id-mu1ib6gd-joa9o",
-          "fecha": "2026-09-14",
-          "hora": "14:18",
-          "barberoId": "barbero-1",
-          "barberoNombre": "Laureano",
-          "servicioNombre": "Corte",
-          "monto": 15000,
-          "metodoPago": "EFECTIVO",
-          "timestamp": 1789406301037
-        }
-      ]
-    },
     {
       "id": "id-mtyzuqvb-vvhlu",
       "fecha": "2026-09-12",
