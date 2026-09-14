@@ -629,7 +629,7 @@ async function handleRegistrarCorte(event) {
     clienteId: clienteId || null
   };
 
-  const nuevoCorte = StorageService.addCorte(corte);
+  const nuevoCorte = await StorageService.addCorte(corte);
 
   // Si estaba asociado a un cliente, registrar en su historial
   if (cliente) {
@@ -644,7 +644,7 @@ async function handleRegistrarCorte(event) {
       servicioNombre: servicioBase,
       timestamp: Date.now()
     });
-    StorageService.upsertCliente(cliente);
+    await StorageService.upsertCliente(cliente);
     deseleccionarClienteMembresiaCorte();
   }
 
@@ -902,9 +902,9 @@ function renderTabDiario() {
 }
 
 // Eliminar un corte registrado
-function eliminarCorteConfirm(id) {
+async function eliminarCorteConfirm(id) {
   if (confirm('¿Estás seguro de que deseas eliminar este corte? Se recalculará la caja del día.')) {
-    StorageService.deleteCorte(id);
+    await StorageService.deleteCorte(id);
     showToast('Corte eliminado con éxito.', 'info');
     renderAllViews();
   }
@@ -1787,18 +1787,18 @@ function guardarCliente(event) {
     membresia: membresiaActual
   };
 
-  StorageService.upsertCliente(dataCliente);
+  await StorageService.upsertCliente(dataCliente);
   closeModalCliente();
   showToast(`Cliente ${id ? 'actualizado' : 'dado de alta'} con éxito.`, 'success');
   renderAllViews();
 }
 
-function eliminarClienteConfirm(id) {
+async function eliminarClienteConfirm(id) {
   const cliente = StorageService.getClienteById(id);
   if (!cliente) return;
 
   if (confirm(`¿Estás seguro de que deseas dar de baja a ${cliente.nombre} de los clientes VIP?`)) {
-    StorageService.deleteCliente(id);
+    await StorageService.deleteCliente(id);
     showToast(`Cliente ${cliente.nombre} dado de baja con éxito.`, 'info');
     renderAllViews();
   }
@@ -1824,7 +1824,7 @@ function closeModalPagoMembresia() {
   document.getElementById('modalPagoMembresia').classList.add('hidden');
 }
 
-function ejecutarCobroMembresia(event) {
+async function ejecutarCobroMembresia(event) {
   event.preventDefault();
 
   const clienteId = document.getElementById('pagoClienteId').value;
@@ -1839,7 +1839,7 @@ function ejecutarCobroMembresia(event) {
     return;
   }
 
-  const cliente = StorageService.registrarPagoMembresia(clienteId, {
+  const cliente = await StorageService.registrarPagoMembresia(clienteId, {
     monto,
     metodoPago,
     fecha,
@@ -1859,7 +1859,7 @@ function ejecutarCobroMembresia(event) {
     });
   }
 
-  showToast(`¡Membresía cobrada y activada para ${cliente.nombre}!`, 'success');
+  showToast(`¡Membresía cobrada y activada para ${cliente ? cliente.nombre : 'el cliente'}!`, 'success');
   renderAllViews();
 }
 
@@ -1881,7 +1881,7 @@ function closeModalCorteMembresia() {
   document.getElementById('modalCorteMembresia').classList.add('hidden');
 }
 
-function ejecutarCorteMembresia(event) {
+async function ejecutarCorteMembresia(event) {
   event.preventDefault();
 
   const clienteId = document.getElementById('corteMembresiaClienteId').value;
@@ -1892,7 +1892,7 @@ function ejecutarCorteMembresia(event) {
   const fecha = document.getElementById('corteMembresiaFecha').value || getTodayISO();
   const hora = document.getElementById('corteMembresiaHora').value || getCurrentTime();
 
-  const cliente = StorageService.registrarCorteMembresia(clienteId, {
+  const cliente = await StorageService.registrarCorteMembresia(clienteId, {
     barberoId: barbero.id,
     barberoNombre: barbero.nombre,
     servicioNombre,
@@ -1911,7 +1911,7 @@ function ejecutarCorteMembresia(event) {
     });
   }
 
-  showToast(`¡Corte registrado a la membresía de ${cliente.nombre}!`, 'success');
+  showToast(`¡Corte registrado a la membresía de ${cliente ? cliente.nombre : 'el cliente'}!`, 'success');
   renderAllViews();
 }
 

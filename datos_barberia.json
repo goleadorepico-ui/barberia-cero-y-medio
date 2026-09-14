@@ -66,88 +66,12 @@
       "timestamp": 1789251032191
     }
   ],
-  "clientes": [
-    {
-      "id": "id-mtyszwk8-xpr0q",
-      "nombre": "fghfgh",
-      "telefono": "151515",
-      "notas": "",
-      "fechaAlta": "2026-09-12",
-      "membresia": {
-        "activa": true,
-        "precioMensual": 25000,
-        "fechaInicio": "2026-09-12",
-        "fechaVencimiento": "2026-10-12",
-        "cortesIncluidos": "ilimitado"
-      },
-      "pagos": [
-        {
-          "id": "id-mtyt3bgi-9nhp3",
-          "fecha": "2026-09-12",
-          "hora": "16:56",
-          "monto": 25000,
-          "metodoPago": "EFECTIVO",
-          "fechaInicio": "2026-09-12",
-          "fechaVencimiento": "2026-10-12",
-          "diasValidez": 30,
-          "timestamp": 1789243011522
-        },
-        {
-          "id": "id-mtyt034x-rz5si",
-          "fecha": "2026-09-12",
-          "hora": "16:54",
-          "monto": 25000,
-          "metodoPago": "EFECTIVO",
-          "fechaInicio": "2026-09-12",
-          "fechaVencimiento": "2026-10-12",
-          "diasValidez": 30,
-          "timestamp": 1789242860769
-        }
-      ],
-      "cortes": [
-        {
-          "id": "id-mtyuh6g2-tauwp",
-          "corteGlobalId": "id-mtyuh6g2-1c8st",
-          "fecha": "2026-09-12",
-          "hora": "17:35",
-          "barberoId": "barbero-1",
-          "barberoNombre": "Laureano",
-          "servicioNombre": "Corte",
-          "timestamp": 1789245337826
-        },
-        {
-          "id": "id-mtyt33bm-3g13z",
-          "corteGlobalId": "id-mtyt33bl-sfbwd",
-          "fecha": "2026-09-12",
-          "hora": "16:56",
-          "barberoId": "barbero-1",
-          "barberoNombre": "Laureano",
-          "servicioNombre": "Corte",
-          "timestamp": 1789243000978
-        },
-        {
-          "id": "id-mtyt23o1-jomf9",
-          "corteGlobalId": "id-mtyt23o1-i8id1",
-          "fecha": "2026-09-12",
-          "hora": "16:55",
-          "barberoId": "barbero-1",
-          "barberoNombre": "Laureano",
-          "servicioNombre": "Corte",
-          "timestamp": 1789242954769
-        },
-        {
-          "id": "id-mtyt10cx-373jv",
-          "corteGlobalId": "id-mtyt10cx-fmuo3",
-          "fecha": "2026-09-12",
-          "hora": "16:55",
-          "barberoId": "barbero-1",
-          "barberoNombre": "Laureano",
-          "servicioNombre": "Corte",
-          "timestamp": 1789242903825
-        }
-      ]
-    }
+  "clientes": [],
+  "deleted_cliente_ids": [
+    "id-mtyszwk8-xpr0q"
   ],
+  "deleted_corte_ids": [],
+  "deleted_turno_ids": [],
   "cierres": [
     {
       "id": "id-mtyzuqvb-vvhlu",

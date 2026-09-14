@@ -42,7 +42,7 @@ SERVER_INFO = {
 def process_data_update(incoming_data):
     """
     Central data processor for cortes, clientes, cierres, and turnos.
-    Merges records safely without overwriting concurrent client changes.
+    Merges records safely with permanent tombstones to prevent resurrection.
     """
     existing_data = {}
     if os.path.exists(DATA_FILE):
@@ -58,56 +58,102 @@ def process_data_update(incoming_data):
             'servicios': existing_data.get('servicios', incoming_data.get('servicios', [])),
             'cortes': [],
             'clientes': [],
-            'cierres': []
+            'cierres': [],
+            'turnos': [],
+            'deleted_cliente_ids': [],
+            'deleted_corte_ids': [],
+            'deleted_turno_ids': []
         }
     else:
         final_data = dict(existing_data)
+        action = incoming_data.get('action')
 
-        # Barberos
-        if 'barberos' in incoming_data and incoming_data['barberos']:
+        deleted_cliente_ids = set(str(cid) for cid in existing_data.get('deleted_cliente_ids', []))
+        deleted_corte_ids = set(str(cid) for cid in existing_data.get('deleted_corte_ids', []))
+        deleted_turno_ids = set(str(tid) for tid in existing_data.get('deleted_turno_ids', []))
+
+        # 1. Barberos
+        if action == 'save_barberos' and 'barberos' in incoming_data:
             final_data['barberos'] = incoming_data['barberos']
         elif 'barberos' not in final_data:
-            final_data['barberos'] = incoming_data.get('barberos', [])
+            final_data['barberos'] = incoming_data.get('barberos', existing_data.get('barberos', []))
 
-        # Servicios
-        if 'servicios' in incoming_data and incoming_data['servicios']:
+        # 2. Servicios
+        if action == 'save_servicios' and 'servicios' in incoming_data:
             final_data['servicios'] = incoming_data['servicios']
         elif 'servicios' not in final_data:
-            final_data['servicios'] = incoming_data.get('servicios', [])
+            final_data['servicios'] = incoming_data.get('servicios', existing_data.get('servicios', []))
 
-        # Cortes
-        if incoming_data.get('action') == 'delete_corte':
-            final_data['cortes'] = incoming_data.get('cortes', [])
-        else:
-            existing_cortes = existing_data.get('cortes', [])
+        # 3. Cortes
+        if action == 'delete_corte':
+            corte_id = incoming_data.get('corteId')
+            if corte_id:
+                deleted_corte_ids.add(str(corte_id))
             incoming_cortes = incoming_data.get('cortes', [])
-            c_map = {c['id']: c for c in existing_cortes if isinstance(c, dict) and 'id' in c}
-            for c in incoming_cortes:
-                if isinstance(c, dict) and 'id' in c:
-                    c_map[c['id']] = c
+            final_data['cortes'] = [c for c in incoming_cortes if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
+        elif action == 'nuevo_corte':
+            nuevo_c = incoming_data.get('corte')
+            if nuevo_c and isinstance(nuevo_c, dict) and nuevo_c.get('id'):
+                deleted_corte_ids.discard(str(nuevo_c['id']))
+            existing_cortes = [c for c in existing_data.get('cortes', []) if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
+            c_map = {str(c['id']): c for c in existing_cortes if 'id' in c}
+            if nuevo_c and isinstance(nuevo_c, dict) and 'id' in nuevo_c:
+                c_map[str(nuevo_c['id'])] = nuevo_c
+            for c in incoming_data.get('cortes', []):
+                if isinstance(c, dict) and 'id' in c and str(c['id']) not in deleted_corte_ids:
+                    c_map[str(c['id'])] = c
             merged_c = sorted(list(c_map.values()), key=lambda x: x.get('timestamp', 0), reverse=True)
             final_data['cortes'] = merged_c
-
-        # Clientes
-        if incoming_data.get('action') == 'delete_cliente':
-            final_data['clientes'] = incoming_data.get('clientes', [])
+        elif action == 'save_cortes':
+            incoming_cortes = incoming_data.get('cortes', [])
+            final_data['cortes'] = [c for c in incoming_cortes if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
         else:
-            existing_clientes = existing_data.get('clientes', [])
-            incoming_clientes = incoming_data.get('clientes', [])
-            cl_map = {cl['id']: cl for cl in existing_clientes if isinstance(cl, dict) and 'id' in cl}
-            for cl in incoming_clientes:
-                if isinstance(cl, dict) and 'id' in cl:
-                    cl_map[cl['id']] = cl
-            final_data['clientes'] = list(cl_map.values())
+            existing_cortes = existing_data.get('cortes', [])
+            final_data['cortes'] = [c for c in existing_cortes if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
+        final_data['deleted_corte_ids'] = list(deleted_corte_ids)
 
-        # Cierres
-        if incoming_data.get('action') == 'reabrir_caja':
+        # 4. Clientes (VIP y Membresias)
+        if action == 'delete_cliente':
+            cid = incoming_data.get('clienteId')
+            if cid:
+                deleted_cliente_ids.add(str(cid))
+            incoming_clientes = incoming_data.get('clientes', [])
+            final_data['clientes'] = [c for c in incoming_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+        elif action == 'upsert_cliente':
+            nuevo_cliente = incoming_data.get('cliente')
+            if nuevo_cliente and isinstance(nuevo_cliente, dict) and nuevo_cliente.get('id'):
+                deleted_cliente_ids.discard(str(nuevo_cliente['id']))
+            incoming_clientes = incoming_data.get('clientes', [])
+            if incoming_clientes:
+                final_data['clientes'] = [c for c in incoming_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+            elif nuevo_cliente and isinstance(nuevo_cliente, dict):
+                current_cl = [c for c in existing_data.get('clientes', []) if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+                found = False
+                for idx, c in enumerate(current_cl):
+                    if str(c.get('id')) == str(nuevo_cliente.get('id')):
+                        current_cl[idx] = {**c, **nuevo_cliente}
+                        found = True
+                        break
+                if not found:
+                    current_cl.insert(0, nuevo_cliente)
+                final_data['clientes'] = current_cl
+        elif action == 'save_clientes':
+            incoming_clientes = incoming_data.get('clientes', [])
+            final_data['clientes'] = [c for c in incoming_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+        else:
+            # En peticiones generales o de sondeo, el servidor es autoritativo y nunca resucita clientes eliminados
+            existing_clientes = existing_data.get('clientes', [])
+            final_data['clientes'] = [c for c in existing_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+        final_data['deleted_cliente_ids'] = list(deleted_cliente_ids)
+
+        # 5. Cierres
+        if action == 'reabrir_caja':
             fecha_reabrir = incoming_data.get('fecha')
             if fecha_reabrir:
                 final_data['cierres'] = [ci for ci in existing_data.get('cierres', []) if isinstance(ci, dict) and ci.get('fecha') != fecha_reabrir]
             else:
                 final_data['cierres'] = []
-        elif incoming_data.get('action') == 'guardar_cierre':
+        elif action == 'guardar_cierre':
             cierre_nuevo = incoming_data.get('cierre')
             if cierre_nuevo and isinstance(cierre_nuevo, dict):
                 cierres_restantes = [ci for ci in existing_data.get('cierres', []) if isinstance(ci, dict) and ci.get('fecha') != cierre_nuevo.get('fecha')]
@@ -115,44 +161,63 @@ def process_data_update(incoming_data):
                 final_data['cierres'] = cierres_restantes
             else:
                 final_data['cierres'] = incoming_data.get('cierres', [])
-        elif incoming_data.get('action') == 'delete_cierre':
+        elif action == 'delete_cierre':
             cierre_id = incoming_data.get('cierreId')
             final_data['cierres'] = [ci for ci in existing_data.get('cierres', []) if isinstance(ci, dict) and ci.get('id') != cierre_id]
         else:
             final_data['cierres'] = existing_data.get('cierres', [])
 
-        # Turnos
-        existing_turnos = existing_data.get('turnos', [])
-        if incoming_data.get('action') == 'nuevo_turno':
+        # 6. Turnos
+        existing_turnos = [t for t in existing_data.get('turnos', []) if isinstance(t, dict) and str(t.get('id')) not in deleted_turno_ids]
+        if action == 'nuevo_turno':
             turno_nuevo = incoming_data.get('turno')
             if turno_nuevo and isinstance(turno_nuevo, dict):
-                t_list = [t for t in existing_turnos if isinstance(t, dict) and t.get('id') != turno_nuevo.get('id')]
+                if turno_nuevo.get('id'):
+                    deleted_turno_ids.discard(str(turno_nuevo['id']))
+                t_list = [t for t in existing_turnos if str(t.get('id')) != str(turno_nuevo.get('id'))]
                 t_list.insert(0, turno_nuevo)
                 final_data['turnos'] = t_list
-        elif incoming_data.get('action') == 'cancelar_turno':
+        elif action == 'cancelar_turno':
             turno_id = incoming_data.get('turnoId')
             for t in existing_turnos:
-                if isinstance(t, dict) and t.get('id') == turno_id:
+                if str(t.get('id')) == str(turno_id):
                     t['estado'] = 'cancelado'
             final_data['turnos'] = existing_turnos
-        elif incoming_data.get('action') == 'completar_turno':
+        elif action == 'completar_turno':
             turno_id = incoming_data.get('turnoId')
             for t in existing_turnos:
-                if isinstance(t, dict) and t.get('id') == turno_id:
+                if str(t.get('id')) == str(turno_id):
                     t['estado'] = 'completado'
             final_data['turnos'] = existing_turnos
-        elif incoming_data.get('action') == 'delete_turno':
+        elif action == 'delete_turno':
             turno_id = incoming_data.get('turnoId')
-            final_data['turnos'] = [t for t in existing_turnos if isinstance(t, dict) and t.get('id') != turno_id]
-        elif 'turnos' in incoming_data:
+            if turno_id:
+                deleted_turno_ids.add(str(turno_id))
+            final_data['turnos'] = [t for t in existing_turnos if str(t.get('id')) != str(turno_id)]
+        elif action == 'save_turnos':
             incoming_turnos = incoming_data.get('turnos', [])
-            t_map = {t['id']: t for t in existing_turnos if isinstance(t, dict) and 'id' in t}
-            for t in incoming_turnos:
-                if isinstance(t, dict) and 'id' in t:
-                    t_map[t['id']] = t
-            final_data['turnos'] = list(t_map.values())
-        elif 'turnos' not in final_data:
+            final_data['turnos'] = [t for t in incoming_turnos if isinstance(t, dict) and str(t.get('id')) not in deleted_turno_ids]
+        else:
             final_data['turnos'] = existing_turnos
+        final_data['deleted_turno_ids'] = list(deleted_turno_ids)
+
+        # 7. Restauracion / Importacion de Backup
+        if action == 'import_backup':
+            if 'barberos' in incoming_data:
+                final_data['barberos'] = incoming_data['barberos']
+            if 'servicios' in incoming_data:
+                final_data['servicios'] = incoming_data['servicios']
+            if 'cortes' in incoming_data:
+                final_data['cortes'] = incoming_data['cortes']
+            if 'cierres' in incoming_data:
+                final_data['cierres'] = incoming_data['cierres']
+            if 'clientes' in incoming_data:
+                final_data['clientes'] = incoming_data['clientes']
+            if 'turnos' in incoming_data:
+                final_data['turnos'] = incoming_data['turnos']
+            final_data['deleted_cliente_ids'] = []
+            final_data['deleted_corte_ids'] = []
+            final_data['deleted_turno_ids'] = []
 
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(final_data, f, ensure_ascii=False, indent=2)

@@ -68,7 +68,7 @@ const StorageService = {
 
   saveBarberos(barberos, skipPush = false) {
     localStorage.setItem(STORAGE_KEYS.BARBEROS, JSON.stringify(barberos));
-    if (!skipPush) this.pushToServer();
+    if (!skipPush) this.pushToServer({ action: 'save_barberos', barberos });
   },
 
   upsertBarbero(barbero) {
@@ -103,7 +103,7 @@ const StorageService = {
 
   saveServicios(servicios, skipPush = false) {
     localStorage.setItem(STORAGE_KEYS.SERVICIOS, JSON.stringify(servicios));
-    if (!skipPush) this.pushToServer();
+    if (!skipPush) this.pushToServer({ action: 'save_servicios', servicios });
   },
 
   upsertServicio(servicio) {
@@ -137,7 +137,7 @@ const StorageService = {
 
   saveAllCortes(cortes, skipPush = false) {
     localStorage.setItem(STORAGE_KEYS.CORTES, JSON.stringify(cortes));
-    if (!skipPush) this.pushToServer();
+    if (!skipPush) this.pushToServer({ action: 'save_cortes', cortes });
   },
 
   getCortesHoy() {
@@ -145,7 +145,7 @@ const StorageService = {
     return this.getAllCortes().filter(c => c.fecha === today);
   },
 
-  addCorte(corte) {
+  async addCorte(corte) {
     const all = this.getAllCortes();
     const nuevoCorte = {
       id: generateUUID(),
@@ -159,14 +159,15 @@ const StorageService = {
       timestamp: Date.now()
     };
     all.unshift(nuevoCorte); // Más reciente primero
-    this.saveAllCortes(all);
+    this.saveAllCortes(all, true);
+    await this.pushToServer({ action: 'nuevo_corte', corte: nuevoCorte, cortes: all });
     return nuevoCorte;
   },
 
-  deleteCorte(id) {
+  async deleteCorte(id) {
     const all = this.getAllCortes().filter(c => c.id !== id);
     localStorage.setItem(STORAGE_KEYS.CORTES, JSON.stringify(all));
-    this.pushToServer({ action: 'delete_corte', cortes: all });
+    await this.pushToServer({ action: 'delete_corte', corteId: id, cortes: all });
     return all;
   },
 
@@ -234,20 +235,22 @@ const StorageService = {
 
   saveClientes(clientes, skipPush = false) {
     localStorage.setItem(STORAGE_KEYS.CLIENTES, JSON.stringify(clientes));
-    if (!skipPush) this.pushToServer();
+    if (!skipPush) this.pushToServer({ action: 'save_clientes', clientes: clientes });
   },
 
   getClienteById(id) {
     return this.getClientes().find(c => c.id === id) || null;
   },
 
-  upsertCliente(cliente) {
+  async upsertCliente(cliente) {
     const list = this.getClientes();
     const index = list.findIndex(c => c.id === cliente.id);
+    let clienteGuardado;
     if (index >= 0) {
-      list[index] = { ...list[index], ...cliente };
+      clienteGuardado = { ...list[index], ...cliente };
+      list[index] = clienteGuardado;
     } else {
-      const nuevoCliente = {
+      clienteGuardado = {
         id: cliente.id || generateUUID(),
         nombre: cliente.nombre,
         telefono: cliente.telefono || '',
@@ -263,20 +266,21 @@ const StorageService = {
         pagos: cliente.pagos || [],
         cortes: cliente.cortes || []
       };
-      list.unshift(nuevoCliente);
+      list.unshift(clienteGuardado);
     }
-    this.saveClientes(list);
-    return list;
+    this.saveClientes(list, true);
+    await this.pushToServer({ action: 'upsert_cliente', cliente: clienteGuardado, clientes: list });
+    return clienteGuardado;
   },
 
-  deleteCliente(id) {
+  async deleteCliente(id) {
     const list = this.getClientes().filter(c => c.id !== id);
     localStorage.setItem(STORAGE_KEYS.CLIENTES, JSON.stringify(list));
-    this.pushToServer({ action: 'delete_cliente', clientes: list });
+    await this.pushToServer({ action: 'delete_cliente', clienteId: id, clientes: list });
     return list;
   },
 
-  registrarPagoMembresia(clienteId, pagoData) {
+  async registrarPagoMembresia(clienteId, pagoData) {
     const list = this.getClientes();
     const cliente = list.find(c => c.id === clienteId);
     if (!cliente) return null;
@@ -310,11 +314,12 @@ const StorageService = {
       cortesIncluidos: pagoData.cortesIncluidos || 'ilimitado'
     };
 
-    this.saveClientes(list);
+    this.saveClientes(list, true);
+    await this.pushToServer({ action: 'upsert_cliente', cliente: cliente, clientes: list });
 
     // Registrar como movimiento de ingreso en la caja del día
     if (pagoData.registrarEnCaja !== false && monto > 0) {
-      this.addCorte({
+      await this.addCorte({
         barberoId: 'barbero-1',
         barberoNombre: 'Laureano',
         servicioNombre: `Membresía Mensual (${cliente.nombre})`,
@@ -330,7 +335,7 @@ const StorageService = {
     return cliente;
   },
 
-  registrarCorteMembresia(clienteId, corteData) {
+  async registrarCorteMembresia(clienteId, corteData) {
     const list = this.getClientes();
     const cliente = list.find(c => c.id === clienteId);
     if (!cliente) return null;
@@ -341,7 +346,7 @@ const StorageService = {
     const barberoNombre = corteData.barberoNombre || 'Laureano';
     const servicioNombre = corteData.servicioNombre || 'Corte con Membresía';
 
-    const corteGlobal = this.addCorte({
+    const corteGlobal = await this.addCorte({
       barberoId: barberoId,
       barberoNombre: barberoNombre,
       servicioNombre: `${servicioNombre} (${cliente.nombre})`,
@@ -364,7 +369,8 @@ const StorageService = {
       timestamp: Date.now()
     });
 
-    this.saveClientes(list);
+    this.saveClientes(list, true);
+    await this.pushToServer({ action: 'upsert_cliente', cliente: cliente, clientes: list });
     return cliente;
   },
 
@@ -383,7 +389,7 @@ const StorageService = {
 
   saveTurnos(turnos, skipPush = false) {
     localStorage.setItem(STORAGE_KEYS.TURNOS, JSON.stringify(turnos));
-    if (!skipPush) this.pushToServer({ turnos: turnos });
+    if (!skipPush) this.pushToServer({ action: 'save_turnos', turnos: turnos });
   },
 
   async agregarTurno(turnoData) {
@@ -504,15 +510,24 @@ const StorageService = {
     return JSON.stringify(backup, null, 2);
   },
 
-  importBackup(jsonString) {
+  async importBackup(jsonString) {
     try {
       const data = JSON.parse(jsonString);
-      if (data.barberos) this.saveBarberos(data.barberos);
-      if (data.servicios) this.saveServicios(data.servicios);
-      if (data.cortes) this.saveAllCortes(data.cortes);
-      if (data.cierres) this.saveAllCierres(data.cierres);
-      if (data.clientes) this.saveClientes(data.clientes);
-      if (data.turnos) this.saveTurnos(data.turnos);
+      if (data.barberos) this.saveBarberos(data.barberos, true);
+      if (data.servicios) this.saveServicios(data.servicios, true);
+      if (data.cortes) this.saveAllCortes(data.cortes, true);
+      if (data.cierres) this.saveAllCierres(data.cierres, true);
+      if (data.clientes) this.saveClientes(data.clientes, true);
+      if (data.turnos) this.saveTurnos(data.turnos, true);
+      await this.pushToServer({
+        action: 'import_backup',
+        barberos: data.barberos || [],
+        servicios: data.servicios || [],
+        cortes: data.cortes || [],
+        cierres: data.cierres || [],
+        clientes: data.clientes || [],
+        turnos: data.turnos || []
+      });
       return true;
     } catch (e) {
       console.error('Error al importar backup:', e);
@@ -520,14 +535,14 @@ const StorageService = {
     }
   },
 
-  resetAll() {
+  async resetAll() {
     localStorage.removeItem(STORAGE_KEYS.BARBEROS);
     localStorage.removeItem(STORAGE_KEYS.SERVICIOS);
     localStorage.removeItem(STORAGE_KEYS.CORTES);
     localStorage.removeItem(STORAGE_KEYS.CIERRES);
     localStorage.removeItem(STORAGE_KEYS.CLIENTES);
     localStorage.removeItem(STORAGE_KEYS.TURNOS);
-    this.pushToServer({ reset: true });
+    await this.pushToServer({ reset: true });
   },
 
   // SINCRONIZACIÓN CON EL SERVIDOR LOCAL (Para acceso desde celular)
@@ -538,12 +553,11 @@ const StorageService = {
   async syncWithServer() {
     if (!this.isServerAvailable()) return false;
     try {
-      // Evitar caché con timestamp
+      // Evitar cache con timestamp
       const res = await fetch('/api/data?t=' + Date.now());
       if (res.ok) {
         const remoteData = await res.json();
         if (remoteData) {
-          let hasLocalNewItems = false;
           let hasRemoteChanges = false;
 
           // Barberos
@@ -564,37 +578,19 @@ const StorageService = {
             }
           }
 
-          // Cortes (Fusión inteligente por ID)
+          // Cortes (El servidor es la fuente central de verdad autoritativa)
           const localCortes = this.getAllCortes();
           const remoteCortes = Array.isArray(remoteData.cortes) ? remoteData.cortes : [];
-          const corteMap = new Map();
-          remoteCortes.forEach(c => { if (c && c.id) corteMap.set(c.id, c); });
-          localCortes.forEach(c => {
-            if (c && c.id && !corteMap.has(c.id)) {
-              corteMap.set(c.id, c);
-              hasLocalNewItems = true;
-            }
-          });
-          const mergedCortes = Array.from(corteMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-          if (JSON.stringify(localCortes) !== JSON.stringify(mergedCortes)) {
-            this.saveAllCortes(mergedCortes, true);
+          if (JSON.stringify(localCortes) !== JSON.stringify(remoteCortes)) {
+            this.saveAllCortes(remoteCortes, true);
             hasRemoteChanges = true;
           }
 
-          // Clientes (Fusión inteligente por ID)
+          // Clientes (El servidor es la fuente central de verdad: evita resucitar clientes borrados)
           const localClientes = this.getClientes();
           const remoteClientes = Array.isArray(remoteData.clientes) ? remoteData.clientes : [];
-          const clienteMap = new Map();
-          remoteClientes.forEach(cl => { if (cl && cl.id) clienteMap.set(cl.id, cl); });
-          localClientes.forEach(cl => {
-            if (cl && cl.id && !clienteMap.has(cl.id)) {
-              clienteMap.set(cl.id, cl);
-              hasLocalNewItems = true;
-            }
-          });
-          const mergedClientes = Array.from(clienteMap.values());
-          if (JSON.stringify(localClientes) !== JSON.stringify(mergedClientes)) {
-            this.saveClientes(mergedClientes, true);
+          if (JSON.stringify(localClientes) !== JSON.stringify(remoteClientes)) {
+            this.saveClientes(remoteClientes, true);
             hasRemoteChanges = true;
           }
 
@@ -606,38 +602,24 @@ const StorageService = {
             hasRemoteChanges = true;
           }
 
-          // Turnos (Sincronización en tiempo real por ID)
+          // Turnos (El servidor es la fuente central de verdad autoritativa)
           const localTurnos = this.getTurnos();
           const remoteTurnos = Array.isArray(remoteData.turnos) ? remoteData.turnos : [];
-          const turnoMap = new Map();
-          remoteTurnos.forEach(t => { if (t && t.id) turnoMap.set(t.id, t); });
-          localTurnos.forEach(t => {
-            if (t && t.id && !turnoMap.has(t.id)) {
-              turnoMap.set(t.id, t);
-              hasLocalNewItems = true;
-            }
-          });
-          const mergedTurnos = Array.from(turnoMap.values()).sort((a, b) => (a.fecha + ' ' + a.hora).localeCompare(b.fecha + ' ' + b.hora));
-          if (JSON.stringify(localTurnos) !== JSON.stringify(mergedTurnos)) {
-            this.saveTurnos(mergedTurnos, true);
+          if (JSON.stringify(localTurnos) !== JSON.stringify(remoteTurnos)) {
+            this.saveTurnos(remoteTurnos, true);
             hasRemoteChanges = true;
           }
 
-          // Información del servidor y túnel celular (Cloudflare & WiFi IP)
+          // Informacion del servidor y tunel celular (Cloudflare & WiFi IP)
           if (remoteData.serverInfo) {
             localStorage.setItem('barbercontrol_server_info', JSON.stringify(remoteData.serverInfo));
-          }
-
-          // Si el cliente local tenía datos nuevos que el servidor no tenía, sincronizar arriba
-          if (hasLocalNewItems) {
-            await this.pushToServer();
           }
 
           return hasRemoteChanges;
         }
       }
     } catch (e) {
-      console.warn('Servidor no disponible para sincronización:', e);
+      console.warn('Servidor no disponible para sincronizacion:', e);
     }
     return false;
   },
@@ -645,18 +627,10 @@ const StorageService = {
   async pushToServer(extraPayload = {}) {
     if (!this.isServerAvailable()) return;
     try {
-      const payload = {
-        barberos: this.getBarberos(),
-        servicios: this.getServicios(),
-        cortes: this.getAllCortes(),
-        clientes: this.getClientes(),
-        turnos: this.getTurnos(),
-        ...extraPayload
-      };
       await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(extraPayload)
       });
     } catch (e) {
       console.warn('No se pudo enviar al servidor:', e);
