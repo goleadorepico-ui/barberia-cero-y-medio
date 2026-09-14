@@ -1756,7 +1756,7 @@ function closeModalCliente() {
   document.getElementById('modalCliente').classList.add('hidden');
 }
 
-function guardarCliente(event) {
+async function guardarCliente(event) {
   event.preventDefault();
   const id = document.getElementById('clienteEditId').value;
   const nombre = document.getElementById('inputClienteNombre').value.trim();
