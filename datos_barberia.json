@@ -22,6 +22,17 @@
   ],
   "cortes": [
     {
+      "id": "id-mu1nqjvl-19kbm",
+      "fecha": "2026-09-14",
+      "hora": "16:37",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789415416353
+    },
+    {
       "id": "id-mtyxwm9t-l5h43",
       "fecha": "2026-09-12",
       "hora": "19:11",
@@ -71,13 +82,15 @@
     "id-mtyszwk8-xpr0q"
   ],
   "deleted_corte_ids": [
+    "id-mu1naecb-snzpk",
     "id-mu1na45o-0j42u",
     "id-mu1n98bz-ujmu4",
-    "id-mu1naecb-snzpk",
     "id-mu1ibys4-shho6",
     "id-mu1ib6gd-joa9o"
   ],
   "deleted_turno_ids": [],
+  "cortes_adeudados": [],
+  "deleted_adeudado_ids": [],
   "cierres": [
     {
       "id": "id-mtyzuqvb-vvhlu",

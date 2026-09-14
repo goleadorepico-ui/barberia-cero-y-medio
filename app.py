@@ -60,9 +60,11 @@ def process_data_update(incoming_data):
             'clientes': [],
             'cierres': [],
             'turnos': [],
+            'cortes_adeudados': [],
             'deleted_cliente_ids': [],
             'deleted_corte_ids': [],
-            'deleted_turno_ids': []
+            'deleted_turno_ids': [],
+            'deleted_adeudado_ids': []
         }
     else:
         final_data = dict(existing_data)
@@ -71,6 +73,7 @@ def process_data_update(incoming_data):
         deleted_cliente_ids = set(str(cid) for cid in existing_data.get('deleted_cliente_ids', []))
         deleted_corte_ids = set(str(cid) for cid in existing_data.get('deleted_corte_ids', []))
         deleted_turno_ids = set(str(tid) for tid in existing_data.get('deleted_turno_ids', []))
+        deleted_adeudado_ids = set(str(aid) for aid in existing_data.get('deleted_adeudado_ids', []))
 
         # 1. Barberos
         if action == 'save_barberos' and 'barberos' in incoming_data:
@@ -198,7 +201,30 @@ def process_data_update(incoming_data):
             final_data['turnos'] = existing_turnos
         final_data['deleted_turno_ids'] = list(deleted_turno_ids)
 
-        # 7. Restauracion / Importacion de Backup
+        # 7. Cortes Adeudados
+        existing_adeudados = [a for a in existing_data.get('cortes_adeudados', []) if isinstance(a, dict) and str(a.get('id')) not in deleted_adeudado_ids]
+        if action == 'nuevo_adeudado':
+            nuevo_a = incoming_data.get('adeudado')
+            if nuevo_a and isinstance(nuevo_a, dict) and nuevo_a.get('id'):
+                deleted_adeudado_ids.discard(str(nuevo_a['id']))
+                a_list = [a for a in existing_adeudados if str(a.get('id')) != str(nuevo_a.get('id'))]
+                a_list.insert(0, nuevo_a)
+                final_data['cortes_adeudados'] = a_list
+            else:
+                final_data['cortes_adeudados'] = existing_adeudados
+        elif action == 'delete_adeudado':
+            adeudado_id = incoming_data.get('adeudadoId')
+            if adeudado_id:
+                deleted_adeudado_ids.add(str(adeudado_id))
+            final_data['cortes_adeudados'] = [a for a in existing_adeudados if str(a.get('id')) != str(adeudado_id)]
+        elif action == 'save_adeudados':
+            incoming_adeudados = incoming_data.get('cortes_adeudados', [])
+            final_data['cortes_adeudados'] = [a for a in incoming_adeudados if isinstance(a, dict) and str(a.get('id')) not in deleted_adeudado_ids]
+        else:
+            final_data['cortes_adeudados'] = existing_adeudados
+        final_data['deleted_adeudado_ids'] = list(deleted_adeudado_ids)
+
+        # 8. Restauracion / Importacion de Backup
         if action == 'import_backup':
             if 'barberos' in incoming_data:
                 final_data['barberos'] = incoming_data['barberos']
@@ -212,9 +238,12 @@ def process_data_update(incoming_data):
                 final_data['clientes'] = incoming_data['clientes']
             if 'turnos' in incoming_data:
                 final_data['turnos'] = incoming_data['turnos']
+            if 'cortes_adeudados' in incoming_data:
+                final_data['cortes_adeudados'] = incoming_data['cortes_adeudados']
             final_data['deleted_cliente_ids'] = []
             final_data['deleted_corte_ids'] = []
             final_data['deleted_turno_ids'] = []
+            final_data['deleted_adeudado_ids'] = []
 
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(final_data, f, ensure_ascii=False, indent=2)

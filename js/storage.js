@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   CIERRES: 'barbercontrol_cierres',
   CLIENTES: 'barbercontrol_clientes',
   TURNOS: 'barbercontrol_turnos',
+  ADEUDADOS: 'barbercontrol_adeudados',
   CONFIG: 'barbercontrol_config',
   SESSION: 'barbercontrol_session'
 };
@@ -495,6 +496,87 @@ const StorageService = {
     }
   },
 
+  // ============================================================
+  // CORTES ADEUDADOS (CUENTAS CORRIENTES / FIADOS)
+  // ============================================================
+  getAdeudados() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ADEUDADOS);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      console.error('Error al leer cortes adeudados:', e);
+      return [];
+    }
+  },
+
+  saveAdeudados(adeudados, skipPush = false) {
+    localStorage.setItem(STORAGE_KEYS.ADEUDADOS, JSON.stringify(adeudados));
+    if (!skipPush) this.pushToServer({ action: 'save_adeudados', cortes_adeudados: adeudados });
+  },
+
+  async agregarAdeudado(data) {
+    const list = this.getAdeudados();
+    const nuevoAdeudado = {
+      id: data.id || _safeUUID(),
+      clienteNombre: (data.clienteNombre || '').trim(),
+      clienteTelefono: (data.clienteTelefono || '').trim(),
+      barberoId: data.barberoId || 'barbero-1',
+      barberoNombre: data.barberoNombre || 'Laureano',
+      servicioNombre: data.servicioNombre || 'Corte',
+      monto: Number(data.monto) || 0,
+      fecha: data.fecha || _safeTodayISO(),
+      hora: data.hora || (typeof getCurrentTime === 'function' ? getCurrentTime() : '12:00'),
+      notas: (data.notas || '').trim(),
+      timestamp: Date.now()
+    };
+    list.unshift(nuevoAdeudado);
+    this.saveAdeudados(list, true);
+    await this.pushToServer({
+      action: 'nuevo_adeudado',
+      adeudado: nuevoAdeudado,
+      cortes_adeudados: list
+    });
+    return nuevoAdeudado;
+  },
+
+  async deleteAdeudado(id) {
+    const list = this.getAdeudados().filter(a => a.id !== id);
+    this.saveAdeudados(list, true);
+    await this.pushToServer({
+      action: 'delete_adeudado',
+      adeudadoId: id,
+      cortes_adeudados: list
+    });
+    return list;
+  },
+
+  async marcarAdeudadoPagado(id, cobroData) {
+    const list = this.getAdeudados();
+    const adeudado = list.find(a => a.id === id);
+    if (!adeudado) return null;
+
+    const monto = Number(cobroData.monto !== undefined ? cobroData.monto : adeudado.monto) || 0;
+    const metodoPago = cobroData.metodoPago || 'EFECTIVO';
+    const fecha = cobroData.fecha || _safeTodayISO();
+    const hora = cobroData.hora || (typeof getCurrentTime === 'function' ? getCurrentTime() : '12:00');
+
+    // Registrar formalmente en la caja del dia (ahora si suma a los totales y al barbero)
+    const corte = await this.addCorte({
+      barberoId: cobroData.barberoId || adeudado.barberoId,
+      barberoNombre: cobroData.barberoNombre || adeudado.barberoNombre,
+      servicioNombre: `${adeudado.servicioNombre || 'Corte'} (Adeudado - ${adeudado.clienteNombre})`,
+      monto: monto,
+      metodoPago: metodoPago,
+      fecha: fecha,
+      hora: hora
+    });
+
+    // Eliminar de la lista de adeudados
+    await this.deleteAdeudado(id);
+
+    return corte;
+  },
+
   // BACKUP & RESTORE
   exportBackup() {
     const backup = {
@@ -505,7 +587,8 @@ const StorageService = {
       cortes: this.getAllCortes(),
       cierres: this.getAllCierres(),
       clientes: this.getClientes(),
-      turnos: this.getTurnos()
+      turnos: this.getTurnos(),
+      adeudados: this.getAdeudados()
     };
     return JSON.stringify(backup, null, 2);
   },
@@ -519,6 +602,7 @@ const StorageService = {
       if (data.cierres) this.saveAllCierres(data.cierres, true);
       if (data.clientes) this.saveClientes(data.clientes, true);
       if (data.turnos) this.saveTurnos(data.turnos, true);
+      if (data.adeudados) this.saveAdeudados(data.adeudados, true);
       await this.pushToServer({
         action: 'import_backup',
         barberos: data.barberos || [],
@@ -526,7 +610,8 @@ const StorageService = {
         cortes: data.cortes || [],
         cierres: data.cierres || [],
         clientes: data.clientes || [],
-        turnos: data.turnos || []
+        turnos: data.turnos || [],
+        cortes_adeudados: data.adeudados || []
       });
       return true;
     } catch (e) {
@@ -542,6 +627,7 @@ const StorageService = {
     localStorage.removeItem(STORAGE_KEYS.CIERRES);
     localStorage.removeItem(STORAGE_KEYS.CLIENTES);
     localStorage.removeItem(STORAGE_KEYS.TURNOS);
+    localStorage.removeItem(STORAGE_KEYS.ADEUDADOS);
     await this.pushToServer({ reset: true });
   },
 
@@ -607,6 +693,14 @@ const StorageService = {
           const remoteTurnos = Array.isArray(remoteData.turnos) ? remoteData.turnos : [];
           if (JSON.stringify(localTurnos) !== JSON.stringify(remoteTurnos)) {
             this.saveTurnos(remoteTurnos, true);
+            hasRemoteChanges = true;
+          }
+
+          // Cortes Adeudados (El servidor es la fuente central autoritativa)
+          const localAdeudados = this.getAdeudados();
+          const remoteAdeudados = Array.isArray(remoteData.cortes_adeudados) ? remoteData.cortes_adeudados : [];
+          if (JSON.stringify(localAdeudados) !== JSON.stringify(remoteAdeudados)) {
+            this.saveAdeudados(remoteAdeudados, true);
             hasRemoteChanges = true;
           }
 

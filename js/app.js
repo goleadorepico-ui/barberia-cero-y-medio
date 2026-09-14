@@ -127,6 +127,8 @@ function switchTab(tabId) {
     renderTabTurnos();
   } else if (tabId === 'tab-diario') {
     renderTabDiario();
+  } else if (tabId === 'tab-adeudados') {
+    renderTabAdeudados();
   } else if (tabId === 'tab-clientes') {
     renderTabClientes();
   } else if (tabId === 'tab-barberos') {
@@ -155,8 +157,11 @@ function renderAllViews() {
   renderTabDiario();
   renderTabClientes();
   actualizarBadgeTurnos();
+  actualizarBadgeAdeudados();
   if (appState.currentTab === 'tab-turnos') {
     renderTabTurnos();
+  } else if (appState.currentTab === 'tab-adeudados') {
+    renderTabAdeudados();
   }
   actualizarHeaderTotals();
   checkCajaStatus();
@@ -1526,6 +1531,368 @@ function eliminarServicio(id) {
     StorageService.deleteServicio(id);
     showToast('Servicio eliminado.', 'info');
     renderAllViews();
+  }
+}
+
+// ============================================================
+// TAB: CORTES ADEUDADOS (CUENTAS CORRIENTES / FIADOS)
+// ============================================================
+
+function actualizarBadgeAdeudados() {
+  const badge = document.getElementById('badgeAdeudadosCount');
+  if (!badge) return;
+  const count = StorageService.getAdeudados().length;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function openModalNuevoAdeudado() {
+  const modal = document.getElementById('modalNuevoAdeudado');
+  const selBarbero = document.getElementById('inputAdeudadoBarbero');
+  const selServicio = document.getElementById('inputAdeudadoServicio');
+  const inputMonto = document.getElementById('inputAdeudadoMonto');
+  const inputFecha = document.getElementById('inputAdeudadoFecha');
+  const inputHora = document.getElementById('inputAdeudadoHora');
+  const inputNombre = document.getElementById('inputAdeudadoClienteNombre');
+  const inputNotas = document.getElementById('inputAdeudadoNotas');
+
+  const barberos = StorageService.getBarberos().filter(b => b.activo !== false);
+  const servicios = StorageService.getServicios();
+
+  if (selBarbero) {
+    selBarbero.innerHTML = barberos.map(b => `<option value="${b.id}">${b.nombre}</option>`).join('');
+  }
+  if (selServicio) {
+    selServicio.innerHTML = servicios.map(s => `<option value="${s.id}" data-precio="${s.precio}">${s.nombre} - ${formatCurrency(s.precio)}</option>`).join('');
+  }
+
+  if (servicios.length > 0 && inputMonto) {
+    inputMonto.value = servicios[0].precio;
+  }
+
+  if (inputFecha) inputFecha.value = getTodayISO();
+  if (inputHora) inputHora.value = getCurrentTime();
+  if (inputNombre) inputNombre.value = '';
+  if (inputNotas) inputNotas.value = '';
+
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    if (inputNombre) inputNombre.focus();
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeModalNuevoAdeudado() {
+  const modal = document.getElementById('modalNuevoAdeudado');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+
+function actualizarMontoNuevoAdeudado() {
+  const selServicio = document.getElementById('inputAdeudadoServicio');
+  const inputMonto = document.getElementById('inputAdeudadoMonto');
+  if (selServicio && inputMonto) {
+    const opt = selServicio.options[selServicio.selectedIndex];
+    if (opt && opt.dataset.precio) {
+      inputMonto.value = opt.dataset.precio;
+    }
+  }
+}
+
+async function guardarNuevoAdeudado(event) {
+  event.preventDefault();
+  const inputNombre = document.getElementById('inputAdeudadoClienteNombre');
+  const selBarbero = document.getElementById('inputAdeudadoBarbero');
+  const selServicio = document.getElementById('inputAdeudadoServicio');
+  const inputMonto = document.getElementById('inputAdeudadoMonto');
+  const inputFecha = document.getElementById('inputAdeudadoFecha');
+  const inputHora = document.getElementById('inputAdeudadoHora');
+  const inputNotas = document.getElementById('inputAdeudadoNotas');
+
+  const nombre = inputNombre ? inputNombre.value.trim() : '';
+  const monto = parseFloat(inputMonto ? inputMonto.value : 0);
+
+  if (!nombre) {
+    showToast('Ingresa el nombre de la persona que se cortó.', 'error');
+    return;
+  }
+
+  if (isNaN(monto) || monto <= 0) {
+    showToast('Ingresa un monto adeudado válido.', 'error');
+    return;
+  }
+
+  const barberos = StorageService.getBarberos();
+  const barbero = barberos.find(b => b.id === (selBarbero ? selBarbero.value : '')) || barberos[0] || { id: 'barbero-1', nombre: 'Laureano' };
+
+  const servicios = StorageService.getServicios();
+  const servicio = servicios.find(s => s.id === (selServicio ? selServicio.value : '')) || { nombre: 'Corte' };
+
+  await StorageService.agregarAdeudado({
+    clienteNombre: nombre,
+    barberoId: barbero.id,
+    barberoNombre: barbero.nombre,
+    servicioNombre: servicio.nombre,
+    monto: monto,
+    fecha: inputFecha && inputFecha.value ? inputFecha.value : getTodayISO(),
+    hora: inputHora && inputHora.value ? inputHora.value : getCurrentTime(),
+    notas: inputNotas ? inputNotas.value.trim() : ''
+  });
+
+  closeModalNuevoAdeudado();
+  actualizarBadgeAdeudados();
+  renderTabAdeudados();
+  showToast(`Corte adeudado anotado para ${nombre} ($${monto.toLocaleString('es-AR')}). NO suma a caja hasta el pago.`, 'info');
+}
+
+function iniciarCobroAdeudado(id) {
+  const adeudados = StorageService.getAdeudados();
+  const adeudado = adeudados.find(a => a.id === id);
+  if (!adeudado) {
+    showToast('Corte adeudado no encontrado.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('modalCobrarAdeudado');
+  const hiddenId = document.getElementById('cobroAdeudadoId');
+  const txtCliente = document.getElementById('cobroAdeudadoClienteText');
+  const txtBarbero = document.getElementById('cobroAdeudadoBarberoText');
+  const txtServicio = document.getElementById('cobroAdeudadoServicioText');
+  const inputMonto = document.getElementById('inputCobroAdeudadoMonto');
+
+  if (hiddenId) hiddenId.value = adeudado.id;
+  if (txtCliente) txtCliente.textContent = adeudado.clienteNombre;
+  if (txtBarbero) txtBarbero.textContent = adeudado.barberoNombre;
+  if (txtServicio) txtServicio.textContent = `${adeudado.servicioNombre || 'Corte'} • ${adeudado.fecha} ${adeudado.hora}`;
+  if (inputMonto) inputMonto.value = adeudado.monto;
+
+  // Seleccionar efectivo por defecto
+  const radioEfectivo = document.querySelector('input[name="cobroAdeudadoMetodo"][value="EFECTIVO"]');
+  if (radioEfectivo) radioEfectivo.checked = true;
+
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeModalCobrarAdeudado() {
+  const modal = document.getElementById('modalCobrarAdeudado');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+
+async function confirmarCobroAdeudado(event) {
+  event.preventDefault();
+
+  const id = document.getElementById('cobroAdeudadoId').value;
+  const inputMonto = document.getElementById('inputCobroAdeudadoMonto');
+  const monto = parseFloat(inputMonto ? inputMonto.value : 0);
+  const metodoPago = document.querySelector('input[name="cobroAdeudadoMetodo"]:checked')?.value || 'EFECTIVO';
+
+  if (isNaN(monto) || monto <= 0) {
+    showToast('Ingresa un monto cobrado válido.', 'error');
+    return;
+  }
+
+  // Si la caja de hoy está cerrada, consultar para reabrirla
+  const cierreHoy = StorageService.getCierreHoy();
+  if (cierreHoy) {
+    const continuar = confirm(`La caja de hoy figura cerrada.\n\n¿Deseas abrir la caja ahora para registrar el cobro de este corte adeudado y continuar?`);
+    if (!continuar) return;
+    await StorageService.reabrirCajaHoy();
+    checkCajaStatus();
+  }
+
+  const adeudados = StorageService.getAdeudados();
+  const adeudado = adeudados.find(a => a.id === id);
+  const clienteNombre = adeudado ? adeudado.clienteNombre : 'Cliente';
+
+  await StorageService.marcarAdeudadoPagado(id, {
+    monto: monto,
+    metodoPago: metodoPago,
+    fecha: getTodayISO(),
+    hora: getCurrentTime()
+  });
+
+  closeModalCobrarAdeudado();
+
+  if (window.confetti) {
+    confetti({
+      particleCount: 50,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#10B981', '#D4AF37', '#009EE3']
+    });
+  }
+
+  showToast(`¡Pago de $${monto.toLocaleString('es-AR')} recibido de ${clienteNombre}! Ingresó a caja (${metodoPago}).`, 'success');
+
+  renderAllViews();
+  renderTabAdeudados();
+}
+
+async function eliminarAdeudadoConfirm(id) {
+  const adeudados = StorageService.getAdeudados();
+  const adeudado = adeudados.find(a => a.id === id);
+  const clienteNombre = adeudado ? adeudado.clienteNombre : 'este corte';
+
+  if (!confirm(`¿Estás seguro de que deseas anular/eliminar el corte adeudado de "${clienteNombre}"?`)) {
+    return;
+  }
+
+  await StorageService.deleteAdeudado(id);
+  actualizarBadgeAdeudados();
+  renderTabAdeudados();
+  showToast(`Corte adeudado de ${clienteNombre} eliminado.`, 'info');
+}
+
+function renderTabAdeudados() {
+  actualizarBadgeAdeudados();
+
+  const container = document.getElementById('gridAdeudadosContainer');
+  const kpiMonto = document.getElementById('kpiAdeudadosTotalMonto');
+  const kpiCount = document.getElementById('kpiAdeudadosCount');
+  const kpiPromedio = document.getElementById('kpiAdeudadosPromedio');
+  const searchInput = document.getElementById('inputBuscarAdeudado');
+  const filtroBarbero = document.getElementById('filtroBarberoAdeudado');
+
+  const adeudados = StorageService.getAdeudados();
+
+  // Popular filtro de barberos si no está inicializado
+  if (filtroBarbero && filtroBarbero.options.length <= 1) {
+    const barberos = StorageService.getBarberos();
+    barberos.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = b.nombre;
+      filtroBarbero.appendChild(opt);
+    });
+  }
+
+  // KPIs
+  const totalMonto = adeudados.reduce((acc, a) => acc + (Number(a.monto) || 0), 0);
+  const totalCount = adeudados.length;
+  const promedio = totalCount > 0 ? Math.round(totalMonto / totalCount) : 0;
+
+  if (kpiMonto) kpiMonto.textContent = formatCurrency(totalMonto);
+  if (kpiCount) kpiCount.textContent = totalCount;
+  if (kpiPromedio) kpiPromedio.textContent = formatCurrency(promedio);
+
+  if (!container) return;
+
+  // Filtrado
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const barberoFilter = filtroBarbero ? filtroBarbero.value : 'todos';
+
+  let filtrados = adeudados;
+  if (query) {
+    filtrados = filtrados.filter(a =>
+      (a.clienteNombre && a.clienteNombre.toLowerCase().includes(query)) ||
+      (a.notas && a.notas.toLowerCase().includes(query)) ||
+      (a.servicioNombre && a.servicioNombre.toLowerCase().includes(query))
+    );
+  }
+
+  if (barberoFilter !== 'todos') {
+    filtrados = filtrados.filter(a => a.barberoId === barberoFilter);
+  }
+
+  if (filtrados.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full bg-brand-card p-10 rounded-2xl border border-brand-border text-center text-gray-400">
+        <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+          <i data-lucide="clipboard-check" class="w-8 h-8 opacity-60"></i>
+        </div>
+        <h3 class="text-base font-bold text-white mb-1">No hay cortes adeudados ${query || barberoFilter !== 'todos' ? 'que coincidan con la búsqueda' : 'pendientes'}</h3>
+        <p class="text-xs text-gray-500 mb-4">${query || barberoFilter !== 'todos' ? 'Intenta modificar el filtro o término de búsqueda.' : '¡Excelente! Todas las cuentas de cortes están al día.'}</p>
+        <button onclick="openModalNuevoAdeudado()" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-bold rounded-xl text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Anotar Corte Adeudado</span>
+        </button>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = filtrados.map(a => {
+    return `
+      <div class="bg-brand-card rounded-2xl border border-amber-500/30 p-5 shadow-xl flex flex-col justify-between space-y-4 hover:border-amber-500/50 transition-all">
+        <!-- Encabezado de la Tarjeta -->
+        <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center font-bold text-sm border border-amber-500/30 flex-shrink-0">
+                ${getInitials(a.clienteNombre)}
+              </div>
+              <div class="overflow-hidden">
+                <h4 class="text-base font-bold text-white truncate">${a.clienteNombre}</h4>
+                <div class="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                  <span class="text-brand-gold font-medium">✂️ ${a.barberoNombre || 'Laureano'}</span>
+                  <span>•</span>
+                  <span>${a.servicioNombre || 'Corte'}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Botón Eliminar / Anular -->
+            <button onclick="eliminarAdeudadoConfirm('${a.id}')" title="Anular o eliminar deuda" class="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Monto y Estado -->
+          <div class="mt-4 p-3.5 bg-brand-dark rounded-xl border border-brand-border flex items-center justify-between">
+            <div>
+              <span class="text-[11px] text-gray-400 uppercase tracking-wider block">Deuda Pendiente</span>
+              <span class="text-xl font-black text-amber-400">${formatCurrency(a.monto)}</span>
+            </div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              Pendiente
+            </span>
+          </div>
+
+          <!-- Detalle de Fecha, Hora y Notas -->
+          <div class="mt-3 space-y-1 text-xs text-gray-400">
+            <div class="flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-gray-500"></i>
+              <span>Cortado el: <strong>${a.fecha || '--'}</strong> a las ${a.hora || '--:--'} hs</span>
+            </div>
+            ${a.notas ? `
+              <div class="flex items-start gap-1.5 text-gray-400 bg-brand-dark/50 p-2 rounded-lg border border-brand-border/60 mt-1.5">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-amber-400/80 mt-0.5 flex-shrink-0"></i>
+                <span class="italic text-[11px] leading-tight">${a.notas}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Botón de Acción Principal: Pago Recibido -->
+        <div class="pt-2 border-t border-brand-border/60">
+          <button type="button" onclick="iniciarCobroAdeudado('${a.id}')"
+            class="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/35 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+            <span>Pago Recibido</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) {
+    lucide.createIcons();
   }
 }
 
