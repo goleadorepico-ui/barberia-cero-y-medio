@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cero y Medio - Control de Cortes y Caja</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti for celebrations on register -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              gold: '#D4AF37',
+              goldHover: '#c19e30',
+              dark: '#121316',
+              card: '#1A1C22',
+              cardHover: '#23262F',
+              border: '#2A2E39',
+              mp: '#009EE3', // Mercado Pago Blue
+              cash: '#10B981', // Cash Green
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="icon" type="image/jpeg" href="img/logo.jpg">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#0D0E12] text-gray-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-gold selection:text-black">
+
+  <!-- TOP NAVIGATION / HEADER -->
+  <header class="bg-brand-dark/95 backdrop-blur border-b border-brand-border sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-gold/60 shadow-lg shadow-brand-gold/20 flex-shrink-0 bg-black">
+        <img src="img/logo.jpg" alt="Cero y Medio" class="w-full h-full object-cover">
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-bold tracking-tight text-white">Cero y <span class="text-brand-gold">Medio</span></h1>
+          <span id="cajaStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Caja Abierta
+          </span>
+        </div>
+        <div class="flex items-center gap-2 mt-1">
+          <p class="text-xs text-gray-400 hidden lg:inline" id="currentDateDisplay">Cargando fecha...</p>
+          <!-- Perfil Activo Badge & Botón Cambiar / Cerrar Sesión Directo -->
+          <div id="headerBrandBadgeGroup" class="flex items-center gap-1.5">
+            <div onclick="cerrarSesion()" id="headerBrandBadge" title="Toca para cambiar de sesión" class="inline-flex items-center gap-1.5 bg-brand-card hover:bg-brand-cardHover border border-brand-border px-2 py-0.5 rounded-lg text-xs font-semibold cursor-pointer">
+              <span id="headerBrandIcon">👑</span>
+              <span id="headerBrandName" class="text-white font-bold">José</span>
+              <span id="headerBrandRole" class="text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold">Dueño</span>
+            </div>
+            <button onclick="cerrarSesion()" title="Cerrar sesión actual para cambiar a otro usuario" class="inline-flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 px-2.5 py-0.5 rounded-lg transition-all active:scale-95 cursor-pointer shadow-sm">
+              <i data-lucide="log-out" class="w-3 h-3"></i>
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Totals Header Bar (Quick Glance) -->
+    <div class="hidden md:flex items-center gap-4 bg-brand-card px-4 py-2 rounded-xl border border-brand-border">
+      <div class="text-right">
+        <span class="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1 justify-end">
+          <i data-lucide="banknote" class="w-3.5 h-3.5"></i> Efectivo Hoy
+        </span>
+        <span class="text-base font-bold text-white" id="headerCashTotal">$0</span>
+      </div>
+      <div class="h-7 w-[1px] bg-brand-border"></div>
+      <div class="text-right">
+        <span class="text-[11px] uppercase tracking-wider text-sky-400 font-semibold flex items-center gap-1.5 justify-end">
+          <img src="img/mercadopago.jpg" alt="Mercado Pago" class="w-4 h-4 rounded object-contain inline-block"> Mercado Pago
+        </span>
+        <span class="text-base font-bold text-white" id="headerMpTotal">$0</span>
+      </div>
+      <div class="h-7 w-[1px] bg-brand-border"></div>
+      <div class="text-right">
+        <span class="text-[11px] uppercase tracking-wider text-brand-gold font-semibold flex items-center gap-1 justify-end">
+          <i data-lucide="wallet" class="w-3.5 h-3.5"></i> Total Caja
+        </span>
+        <span class="text-base font-bold text-brand-gold" id="headerDayTotal">$0</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center gap-1 bg-brand-card p-1 rounded-xl border border-brand-border overflow-x-auto max-w-full">
+        <button onclick="switchTab('tab-registro')" id="btn-tab-registro" class="nav-btn active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Cargar Corte</span>
+        </button>
+        <button onclick="switchTab('tab-turnos')" id="btn-tab-turnos" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
+          <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
+          <span>Turnos</span>
+          <span id="badgeTurnosPendientes" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-brand-gold text-black font-extrabold ml-0.5">0</span>
+        </button>
+        <button onclick="switchTab('tab-diario')" id="btn-tab-diario" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
+          <i data-lucide="calendar-check" class="w-4 h-4"></i>
+          <span>Caja del Día</span>
+        </button>
+        <button onclick="switchTab('tab-clientes')" id="btn-tab-clientes" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
+          <i data-lucide="crown" class="w-4 h-4 text-brand-gold"></i>
+          <span>Clientes & Membresías</span>
+        </button>
+        <button onclick="switchTab('tab-barberos')" id="btn-tab-barberos" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span>Barberos</span>
+        </button>
+        <button onclick="switchTab('tab-historial')" id="btn-tab-historial" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
+          <i data-lucide="archive" class="w-4 h-4"></i>
+          <span>Historial</span>
+        </button>
+        <button onclick="switchTab('tab-config')" id="btn-tab-config" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" title="Configuración">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+        <button onclick="cerrarSesion()" id="btnNavCerrarSesion" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 border border-red-500/30 transition-all whitespace-nowrap ml-1 cursor-pointer" title="Cerrar sesión actual para cambiar a otro usuario">
+          <i data-lucide="log-out" class="w-3.5 h-3.5 text-red-400"></i>
+          <span>Cerrar Sesión</span>
+        </button>
+      </nav>
+
+      <!-- Perfil Activo y Botón Cerrar Sesión -->
+      <div id="userProfileHeader" class="flex items-center gap-2 ml-auto sm:ml-0">
+        <div onclick="cerrarSesion()" id="userProfileBadge" title="Clic para cambiar de sesión / usuario" class="flex items-center gap-2 bg-brand-card hover:bg-brand-cardHover px-3 py-1.5 rounded-xl border border-brand-border hover:border-brand-gold/50 text-xs font-semibold shadow-sm transition-all cursor-pointer select-none">
+          <div id="userProfileAvatarContainer" class="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-brand-dark flex-shrink-0 border border-brand-border/40">
+            <span id="userProfileIcon" class="text-sm leading-none">👑</span>
+          </div>
+          <span id="userProfileName" class="text-white font-bold">José</span>
+          <span id="userProfileTag" class="text-[10px] px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/30">Dueño</span>
+        </div>
+        <button onclick="cerrarSesion()" id="btnCerrarSesion" title="Cerrar sesión para cambiar a otro usuario" class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-500/50 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Cerrar Sesión</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- ============================================================ -->
+    <!-- TAB 1: REGISTRO RÁPIDO DE CORTES (MOSTRADOR) -->
+    <!-- ============================================================ -->
+    <section id="tab-registro" class="tab-content block space-y-6">
+      
+      <!-- Top banner for Quick Cut Input -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Formulario Cargar Corte -->
+        <div class="lg:col-span-8 bg-brand-card rounded-2xl border border-brand-border p-6 shadow-xl relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-64 h-64 bg-brand-gold/5 rounded-full blur-3xl -z-0 pointer-events-none"></div>
+
+          <div class="flex items-center justify-between pb-4 border-b border-brand-border mb-6">
+            <div class="flex items-center gap-2.5">
+              <span class="p-2 rounded-lg bg-brand-gold/10 text-brand-gold">
+                <i data-lucide="sparkles" class="w-5 h-5"></i>
+              </span>
+              <div>
+                <h2 class="text-lg font-bold text-white">Nuevo Servicio / Corte</h2>
+                <p class="text-xs text-gray-400">Selecciona barbero, servicio y método de pago en 1 click</p>
+              </div>
+            </div>
+            <span class="text-xs bg-brand-dark px-3 py-1.5 rounded-lg border border-brand-border text-gray-300 flex items-center gap-1.5">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-brand-gold"></i>
+              <span id="liveTimeClock">00:00:00</span>
+            </span>
+          </div>
+
+          <form id="formCorte" onsubmit="handleRegistrarCorte(event)" class="space-y-6 relative z-10">
+            
+            <!-- 1. SELECCIÓN DE BARBERO -->
+            <div>
+              <label class="block text-xs uppercase tracking-wider font-semibold text-gray-400 mb-2.5 flex items-center gap-1.5">
+                <i data-lucide="user-check" class="w-4 h-4 text-brand-gold"></i> 1. ¿Quién realizó el corte?
+              </label>
+              <div id="barberosGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                <!-- Injected via JS dynamically -->
+              </div>
+              <input type="hidden" id="selectedBarberoId" required>
+            </div>
+
+            <!-- 2. SERVICIO / PRECIO -->
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <label class="text-xs uppercase tracking-wider font-semibold text-gray-400 flex items-center gap-1.5">
+                  <i data-lucide="scissors" class="w-4 h-4 text-brand-gold"></i> 2. Tipo de Servicio
+                </label>
+                <span class="text-xs text-gray-400">O ingresa un monto personalizado</span>
+              </div>
+              
+              <div id="serviciosGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-3">
+                <!-- Injected via JS dynamically -->
+              </div>
+
+              <!-- Input Monto y Horario -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-brand-dark/60 p-3.5 rounded-xl border border-brand-border">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1 font-medium">Monto a cobrar ($)</label>
+                  <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                    <input type="number" id="inputMonto" min="0" step="50" placeholder="0" required
+                      class="w-full bg-brand-dark border border-brand-border rounded-xl pl-8 pr-4 py-2.5 text-lg font-bold text-white focus:outline-none focus:border-brand-gold transition-colors">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1 font-medium">Horario del corte</label>
+                  <div class="relative">
+                    <input type="time" id="inputHorario" required
+                      class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-brand-gold transition-colors">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- OPCIONAL: CLIENTE CON MEMBRESÍA -->
+            <div class="p-3.5 bg-brand-dark/60 rounded-xl border border-brand-border">
+              <div class="flex items-center justify-between">
+                <label class="text-xs uppercase tracking-wider font-semibold text-gray-400 flex items-center gap-1.5">
+                  <i data-lucide="crown" class="w-4 h-4 text-brand-gold"></i> ¿El corte es de un Cliente con Membresía?
+                </label>
+                <button type="button" onclick="toggleSelectorMembresiaCorte()" id="btnToggleClienteMembresia" class="text-xs font-semibold text-brand-gold hover:underline flex items-center gap-1">
+                  <span>Asignar Cliente</span>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <div id="wrapperSelectorClienteMembresia" class="hidden mt-3 pt-3 border-t border-brand-border/60 space-y-2">
+                <select id="selectClienteMembresiaCorte" onchange="handleSelectClienteMembresiaCorte()" class="w-full bg-brand-dark border border-brand-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-gold">
+                  <option value="">-- Seleccionar cliente con membresía --</option>
+                </select>
+                <div id="badgeClienteMembresiaInfo" class="hidden p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-400 flex items-center justify-between">
+                  <span id="badgeClienteMembresiaTexto">Membresía Activa • $0 a cobrar</span>
+                  <button type="button" onclick="deseleccionarClienteMembresiaCorte()" class="text-[11px] underline text-gray-400 hover:text-white">Desmarcar cliente</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. MEDIO DE PAGO -->
+            <div>
+              <label class="block text-xs uppercase tracking-wider font-semibold text-gray-400 mb-2.5 flex items-center gap-1.5">
+                <i data-lucide="credit-card" class="w-4 h-4 text-brand-gold"></i> 3. Medio de Pago
+              </label>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label id="paymentMethodMembresiaOption" class="hidden payment-method-card group relative cursor-pointer col-span-2">
+                  <input type="radio" name="metodoPago" value="MEMBRESIA" class="peer sr-only">
+                  <div class="p-3.5 rounded-xl border border-brand-gold bg-brand-gold/10 flex items-center gap-3 transition-all text-brand-gold">
+                    <div class="w-10 h-10 rounded-lg bg-brand-gold/20 text-brand-gold flex items-center justify-center font-bold">
+                      <i data-lucide="crown" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                      <span class="block text-sm font-bold text-white">Membresía Cubierta</span>
+                      <span class="text-[11px] text-gray-400">Sin cobro adicional ($0)</span>
+                    </div>
+                  </div>
+                </label>
+
+                <label id="paymentMethodCashOption" class="payment-method-card group relative cursor-pointer">
+                  <input type="radio" name="metodoPago" value="EFECTIVO" checked class="peer sr-only">
+                  <div class="p-3.5 rounded-xl border border-brand-border bg-brand-dark flex items-center gap-3 transition-all peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 peer-checked:text-emerald-400">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                      <i data-lucide="banknote" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                      <span class="block text-sm font-bold text-white group-hover:text-emerald-300">Efectivo</span>
+                      <span class="text-[11px] text-gray-400">Caja física</span>
+                    </div>
+                  </div>
+                </label>
+
+                <label id="paymentMethodMpOption" class="payment-method-card group relative cursor-pointer">
+                  <input type="radio" name="metodoPago" value="MERCADOPAGO" class="peer sr-only">
+                  <div class="p-3.5 rounded-xl border border-brand-border bg-brand-dark flex items-center gap-3 transition-all peer-checked:border-sky-500 peer-checked:bg-sky-500/10 peer-checked:text-sky-400">
+                    <div class="w-11 h-11 rounded-xl overflow-hidden shadow-md flex-shrink-0 flex items-center justify-center bg-white p-0.5 border border-white/20">
+                      <img src="img/mercadopago.jpg" alt="Mercado Pago" class="w-full h-full object-contain rounded-lg">
+                    </div>
+                    <div>
+                      <span class="block text-sm font-bold text-white group-hover:text-sky-300">Mercado Pago</span>
+                      <span class="text-[11px] text-gray-400">QR / App oficial</span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- BOTÓN REGISTRAR -->
+            <button type="submit" id="btnSubmitCorte"
+              class="w-full py-4 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black text-lg tracking-wide uppercase shadow-lg shadow-brand-gold/25 hover:shadow-brand-gold/40 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+              <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+              <span>Registrar Corte Ahora</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Columna Derecha: Resumen de Cortes del Día en Vivo & Accesos -->
+        <div class="lg:col-span-4 space-y-5">
+          
+          <!-- Mini Card de Cortes de Hoy -->
+          <div class="bg-brand-card rounded-2xl border border-brand-border p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm uppercase tracking-wider font-bold text-gray-300 flex items-center gap-2">
+                <i data-lucide="activity" class="w-4 h-4 text-brand-gold"></i> Actividad de Hoy
+              </h3>
+              <span id="badgeTotalCortesCount" class="bg-brand-gold/20 text-brand-gold font-bold px-2.5 py-0.5 rounded-full text-xs">
+                0 cortes
+              </span>
+            </div>
+
+            <!-- Mini Listado Últimos Cortes -->
+            <div id="recentCutsList" class="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <button onclick="switchTab('tab-diario')" class="mt-4 w-full py-2.5 bg-brand-dark hover:bg-brand-cardHover border border-brand-border rounded-xl text-xs font-semibold text-gray-300 hover:text-white transition-all flex items-center justify-center gap-2">
+              <span>Ver Todos y Cierre de Caja</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <!-- Atajo Cierre de Caja Rápido -->
+          <div id="panelEstadoCajaShortcut" class="bg-gradient-to-br from-brand-card to-brand-dark rounded-2xl border border-brand-border p-5">
+            <div class="flex items-start gap-3">
+              <div class="p-3 rounded-xl bg-amber-500/10 text-brand-gold border border-amber-500/20">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
+              </div>
+              <div class="flex-1">
+                <h4 class="text-sm font-bold text-white">¿Terminó la jornada?</h4>
+                <p class="text-xs text-gray-400 mt-0.5">El sistema hace el balance automático de efectivo vs Mercado Pago.</p>
+                <button id="btnCierreCajaTab1" onclick="openModalCierreCaja()" class="mt-3 w-full py-2 px-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                  <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                  <span>Hacer Cierre de Caja</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ============================================================ -->
+    <!-- TAB: GESTIÓN DE TURNOS Y RESERVAS ONLINE -->
+    <!-- ============================================================ -->
+    <section id="tab-turnos" class="tab-content hidden space-y-6">
+
+      <!-- Banner Superior con Link Público de Reservas y Acciones Rápidas -->
+      <div class="bg-gradient-to-r from-brand-card via-brand-card to-brand-dark rounded-2xl border border-brand-border p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-80 h-80 bg-brand-gold/5 rounded-full blur-3xl -z-0 pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+          <div class="space-y-1">
+            <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-brand-gold/10 border border-brand-gold/30 text-brand-gold text-xs font-bold">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Agenda de Clientes
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>Turnos y Reservas Online</span>
+            </h2>
+            <p class="text-xs text-gray-400 max-w-xl">
+              Tus clientes pueden reservar turnos de 45 minutos (Lun a Sáb de 09:00 a 20:00 hs) eligiendo su barbero y servicio.
+            </p>
+          </div>
+
+          <!-- Botones de Acción y Compartir Link -->
+          <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <button onclick="abrirModalNuevoTurnoManual()" class="py-2.5 px-4 bg-brand-gold hover:bg-brand-goldHover text-black font-extrabold rounded-xl text-xs transition-all flex items-center gap-2 shadow-lg shadow-brand-gold/25 cursor-pointer active:scale-95">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>Nuevo Turno Manual</span>
+            </button>
+            <button onclick="copiarLinkTurnos()" class="py-2.5 px-3.5 bg-brand-dark hover:bg-brand-cardHover border border-brand-border hover:border-brand-gold/40 text-gray-200 hover:text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer active:scale-95">
+              <i data-lucide="copy" class="w-4 h-4 text-brand-gold"></i>
+              <span id="btnCopiarLinkText">Copiar Link</span>
+            </button>
+            <button onclick="compartirLinkWhatsApp()" class="py-2.5 px-3.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer active:scale-95">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+              <span>Compartir en WhatsApp</span>
+            </button>
+            <a href="turnos.html" target="_blank" class="py-2.5 px-3 bg-brand-dark hover:bg-brand-cardHover border border-brand-border text-gray-400 hover:text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5" title="Ver página pública de reservas">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Barra de Links para Clientes (Público Internet 4G y Red Local WiFi) -->
+        <div class="mt-4 pt-3.5 border-t border-brand-border/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+          <div class="space-y-1.5 w-full md:w-auto">
+            <div class="flex items-center gap-2 text-gray-300 flex-wrap">
+              <span class="text-brand-gold font-bold whitespace-nowrap flex items-center gap-1">
+                <i data-lucide="globe" class="w-3.5 h-3.5 text-brand-gold"></i> Link Oficial para Clientes (4G / WhatsApp):
+              </span>
+              <code id="publicLinkDisplay" onclick="copiarLinkTurnos()" class="bg-brand-dark hover:bg-brand-cardHover px-2.5 py-1 rounded-lg border border-brand-gold/40 text-brand-gold font-mono text-[11px] select-all cursor-pointer transition-colors shadow-sm" title="Haz clic para copiar este link público">
+                cargando enlace...
+              </code>
+            </div>
+            <div class="flex items-center gap-2 text-gray-400 flex-wrap">
+              <span class="text-gray-400 font-medium whitespace-nowrap flex items-center gap-1">
+                <i data-lucide="wifi" class="w-3.5 h-3.5 text-emerald-400"></i> Red Local WiFi:
+              </span>
+              <code id="localLinkDisplay" class="bg-brand-dark px-2.5 py-1 rounded-lg border border-brand-border text-gray-300 font-mono text-[11px] select-all">
+                cargando enlace local...
+              </code>
+            </div>
+          </div>
+          <span class="text-[11px] text-gray-500 whitespace-nowrap flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizado en tiempo real
+          </span>
+        </div>
+      </div>
+
+      <!-- Métricas / KPIs de Turnos -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <!-- Turnos Hoy -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">📅 Turnos Hoy</span>
+            <span class="p-1.5 rounded-lg bg-brand-gold/10 text-brand-gold"><i data-lucide="calendar" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-2">
+            <h3 class="text-2xl font-black text-white" id="kpiTurnosHoy">0</h3>
+            <p class="text-[11px] text-gray-500 mt-0.5" id="kpiTurnosHoySub">agendados para la fecha</p>
+          </div>
+        </div>
+
+        <!-- Pendientes -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-amber-400">⏳ Pendientes</span>
+            <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-400"><i data-lucide="clock" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-2">
+            <h3 class="text-2xl font-black text-amber-400" id="kpiTurnosPendientes">0</h3>
+            <p class="text-[11px] text-gray-500 mt-0.5">por atender</p>
+          </div>
+        </div>
+
+        <!-- Completados -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">✅ Atendidos</span>
+            <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400"><i data-lucide="check-circle" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-2">
+            <h3 class="text-2xl font-black text-emerald-400" id="kpiTurnosCompletados">0</h3>
+            <p class="text-[11px] text-gray-500 mt-0.5">cargados a caja</p>
+          </div>
+        </div>
+
+        <!-- Próximo Turno -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-brand-gold">⚡ Próximo</span>
+            <span class="p-1.5 rounded-lg bg-brand-gold/10 text-brand-gold"><i data-lucide="user-check" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-2 truncate">
+            <h3 class="text-lg font-black text-white truncate" id="kpiProximoTurnoHora">--</h3>
+            <p class="text-[11px] text-gray-400 truncate mt-0.5" id="kpiProximoTurnoCliente">Sin turnos pendientes</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros y Controles de la Agenda -->
+      <div class="bg-brand-card rounded-2xl border border-brand-border p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <!-- Filtros Rápidos de Fecha -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <button type="button" onclick="setFiltroFechaTurnos('hoy')" id="btnFiltroTurnosHoy" class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-brand-gold text-black">Hoy</button>
+          <button type="button" onclick="setFiltroFechaTurnos('manana')" id="btnFiltroTurnosManana" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-300 bg-brand-dark hover:bg-brand-cardHover border border-brand-border">Mañana</button>
+          <button type="button" onclick="setFiltroFechaTurnos('semana')" id="btnFiltroTurnosSemana" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-300 bg-brand-dark hover:bg-brand-cardHover border border-brand-border">Próx. 7 Días</button>
+          <button type="button" onclick="setFiltroFechaTurnos('todos')" id="btnFiltroTurnosTodos" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-300 bg-brand-dark hover:bg-brand-cardHover border border-brand-border">Todos</button>
+          <div class="h-5 w-[1px] bg-brand-border mx-1"></div>
+          <input type="date" id="filtroFechaTurnosInput" onchange="setFiltroFechaTurnosCustom(this.value)" class="bg-brand-dark border border-brand-border text-white text-xs rounded-xl px-2.5 py-1.5 focus:border-brand-gold outline-none">
+        </div>
+
+        <!-- Filtro por Barbero y Estado -->
+        <div class="flex items-center gap-2">
+          <select id="filtroBarberoTurnos" onchange="renderTabTurnos()" class="bg-brand-dark border border-brand-border text-white text-xs rounded-xl px-3 py-1.5 focus:border-brand-gold outline-none">
+            <option value="todos">Todos los Barberos</option>
+          </select>
+          <select id="filtroEstadoTurnos" onchange="renderTabTurnos()" class="bg-brand-dark border border-brand-border text-white text-xs rounded-xl px-3 py-1.5 focus:border-brand-gold outline-none">
+            <option value="todos">Todos los Estados</option>
+            <option value="pendiente" selected>Solo Pendientes</option>
+            <option value="completado">Solo Completados</option>
+            <option value="cancelado">Cancelados</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Lista / Grilla de Turnos -->
+      <div id="turnosContainer" class="space-y-3">
+        <!-- Rendered via JS dynamically -->
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================ -->
+    <!-- TAB 2: CONTROL DIARIO & CIERRE DE CAJA -->
+    <!-- ============================================================ -->
+    <section id="tab-diario" class="tab-content hidden space-y-6">
+      
+      <!-- Banner si la caja está cerrada -->
+      <div id="cajaCerradaBannerTabDiario"></div>
+
+      <!-- Métricas Principales del Día -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Efectivo -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">💵 Total Efectivo</span>
+            <span class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400"><i data-lucide="banknote" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-white" id="kpiEfectivo">$0</h3>
+            <p class="text-xs text-gray-400 mt-1" id="kpiEfectivoCount">0 cobros en efectivo</p>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+        </div>
+
+        <!-- Mercado Pago -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-sky-400">Mercado Pago</span>
+            <span class="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow">
+              <img src="img/mercadopago.jpg" alt="MP" class="w-full h-full object-contain rounded">
+            </span>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-white" id="kpiMp">$0</h3>
+            <p class="text-xs text-gray-400 mt-1" id="kpiMpCount">0 cobros por Mercado Pago</p>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-[#009EE3]"></div>
+        </div>
+
+        <!-- Total Recaudado -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-brand-gold">💰 Total Recaudado</span>
+            <span class="p-2 rounded-lg bg-brand-gold/10 text-brand-gold"><i data-lucide="wallet" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-brand-gold" id="kpiTotal">$0</h3>
+            <p class="text-xs text-gray-400 mt-1" id="kpiTotalCount">0 cortes hoy</p>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-gold"></div>
+        </div>
+
+        <!-- Rendimiento General -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-5 relative overflow-hidden flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-purple-400">✂️ Promedio x Corte</span>
+            <span class="p-2 rounded-lg bg-purple-500/10 text-purple-400"><i data-lucide="trending-up" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-white" id="kpiTicketPromedio">$0</h3>
+            <p class="text-xs text-gray-400 mt-1">Ticket promedio hoy</p>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-purple-500"></div>
+        </div>
+      </div>
+
+      <!-- Resumen por Barbero (Tarjetas rápidas del día) -->
+      <div class="bg-brand-card rounded-2xl border border-brand-border p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="user-check" class="w-5 h-5 text-brand-gold"></i>
+              Rendimiento de Barberos Hoy
+            </h3>
+            <p class="text-xs text-gray-400">Cantidad de cortes y dinero generado por cada uno hoy</p>
+          </div>
+        </div>
+
+        <div id="barberosDayStatsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Tabla Detallada de Cortes del Día -->
+      <div class="bg-brand-card rounded-2xl border border-brand-border shadow-xl overflow-hidden">
+        <div class="p-5 border-b border-brand-border flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="list-ordered" class="w-5 h-5 text-brand-gold"></i>
+              Detalle de Cortes Realizados Hoy
+            </h3>
+            <p class="text-xs text-gray-400">Registro cronológico de todos los servicios cobrados</p>
+          </div>
+
+          <div id="cajaAccionesTabDiario" class="flex items-center gap-3">
+            <button onclick="exportarCortesHoyCSV()" class="px-3 py-2 bg-brand-dark hover:bg-brand-cardHover border border-brand-border rounded-xl text-xs font-semibold text-gray-300 hover:text-white transition-all flex items-center gap-1.5">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>Exportar Excel</span>
+            </button>
+            
+            <button id="btnCierreCajaTabDiario" onclick="openModalCierreCaja()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-red-600/20 transition-all flex items-center gap-1.5">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+              <span>Cerrar Caja del Día</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-brand-dark/70 text-gray-400 text-xs uppercase tracking-wider border-b border-brand-border">
+              <tr>
+                <th class="px-5 py-3.5">Hora</th>
+                <th class="px-5 py-3.5">Barbero</th>
+                <th class="px-5 py-3.5">Servicio</th>
+                <th class="px-5 py-3.5">Medio de Pago</th>
+                <th class="px-5 py-3.5 text-right">Monto</th>
+                <th class="px-5 py-3.5 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaCortesHoyBody" class="divide-y divide-brand-border text-gray-300">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- TAB: CLIENTES & MEMBRESÍAS -->
+    <!-- ============================================================ -->
+    <section id="tab-clientes" class="tab-content hidden space-y-6">
+      
+      <!-- Encabezado de Clientes y Botón Nuevo -->
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-brand-card p-5 rounded-2xl border border-brand-border">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="crown" class="w-5 h-5 text-brand-gold"></i>
+            Clientes VIP & Membresías
+          </h2>
+          <p class="text-xs text-gray-400">Alta de clientes VIP, cobro de cuotas mensuales, bajas y seguimiento de cortes</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button onclick="openModalNuevoCliente()" class="px-4 py-2.5 bg-gradient-to-r from-brand-gold to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-brand-gold/20 transition-all">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span>+ Nuevo Cliente VIP</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjetas Resumen / KPIs -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-brand-card p-4 rounded-2xl border border-brand-border flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-brand-gold/15 text-brand-gold flex items-center justify-center font-bold flex-shrink-0">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-xs text-gray-400 font-medium block">Total de Clientes</span>
+            <h3 class="text-2xl font-black text-white" id="kpiTotalClientes">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-brand-card p-4 rounded-2xl border border-brand-border flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold flex-shrink-0">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-xs text-gray-400 font-medium block">Membresías Activas</span>
+            <h3 class="text-2xl font-black text-emerald-400" id="kpiMembresiasActivas">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-brand-card p-4 rounded-2xl border border-brand-border flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center font-bold flex-shrink-0">
+            <i data-lucide="scissors" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-xs text-gray-400 font-medium block">Cortes por Membresía</span>
+            <h3 class="text-2xl font-black text-white" id="kpiCortesMembresiaTotal">0</h3>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros y Búsqueda -->
+      <div class="bg-brand-card p-4 rounded-2xl border border-brand-border flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="relative w-full sm:w-96">
+          <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="inputBuscarCliente" oninput="renderTabClientes()" placeholder="Buscar cliente por nombre o teléfono..."
+            class="w-full bg-brand-dark border border-brand-border rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:outline-none focus:border-brand-gold transition-colors">
+        </div>
+
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <span class="text-xs text-gray-400">Estado:</span>
+          <select id="filtroEstadoCliente" onchange="renderTabClientes()" class="bg-brand-dark border border-brand-border text-white text-xs font-semibold px-3 py-2 rounded-xl focus:border-brand-gold focus:outline-none">
+            <option value="todos">Todos los clientes</option>
+            <option value="activas">Solo Membresía Activa</option>
+            <option value="vencidas">Vencidas o Sin Membresía</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Listado de Clientes (Grid de Tarjetas) -->
+      <div id="gridClientesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Injected via JS -->
+      </div>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- TAB: BARBEROS Y LIQUIDACIONES -->
+    <!-- ============================================================ -->
+    <section id="tab-barberos" class="tab-content hidden space-y-6">
+      
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-brand-card p-5 rounded-2xl border border-brand-border">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="award" class="w-5 h-5 text-brand-gold"></i>
+            Rendimiento de Barberos
+          </h2>
+          <p class="text-xs text-gray-400">Métricas y volumen de cortes realizados por el barbero</p>
+        </div>
+
+        <!-- Filtro temporal -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400">Ver período:</span>
+          <select id="filtroPeriodoBarberos" onchange="actualizarLiquidacionesBarberos()" class="bg-brand-dark border border-brand-border text-white text-xs font-semibold px-3 py-2 rounded-xl focus:border-brand-gold focus:outline-none">
+            <option value="hoy">Hoy</option>
+            <option value="semana">Esta Semana</option>
+            <option value="mes">Este Mes</option>
+            <option value="historico">Todo el Historial</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Barberos con Desglose -->
+      <div id="cardsLiquidacionBarberos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- TAB 4: HISTORIAL DE CIERRES DE CAJA -->
+    <!-- ============================================================ -->
+    <section id="tab-historial" class="tab-content hidden space-y-6">
+      
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-brand-card p-5 rounded-2xl border border-brand-border">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="archive" class="w-5 h-5 text-brand-gold"></i>
+            Historial de Cajas Cerradas
+          </h2>
+          <p class="text-xs text-gray-400">Consulta los cierres de días anteriores, totales recaudados y auditoría</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <input type="date" id="filtroFechaHistorial" onchange="renderHistorialCierres()" class="bg-brand-dark border border-brand-border text-white text-xs px-3 py-2 rounded-xl focus:border-brand-gold focus:outline-none">
+          <button onclick="limpiarFiltroFechaHistorial()" class="text-xs text-gray-400 hover:text-white px-2 py-1">
+            Limpiar filtro
+          </button>
+        </div>
+      </div>
+
+      <div id="historialCierresContainer" class="space-y-4">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- TAB 5: CONFIGURACIÓN (PRECIOS, BARBEROS, BACKUP) -->
+    <!-- ============================================================ -->
+    <section id="tab-config" class="tab-content hidden space-y-6">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Gestión de Barberos -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-6 shadow-xl">
+          <div class="flex items-center justify-between pb-4 border-b border-brand-border mb-4">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="users" class="w-5 h-5 text-brand-gold"></i>
+              Equipo de Barberos
+            </h3>
+            <button onclick="openModalNuevoBarbero()" class="px-3 py-1.5 bg-brand-gold hover:bg-brand-goldHover text-black font-bold rounded-lg text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar Barbero
+            </button>
+          </div>
+
+          <div id="listaConfigBarberos" class="space-y-3">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Gestión de Servicios y Precios -->
+        <div class="bg-brand-card rounded-2xl border border-brand-border p-6 shadow-xl">
+          <div class="flex items-center justify-between pb-4 border-b border-brand-border mb-4">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="scissors" class="w-5 h-5 text-brand-gold"></i>
+              Servicios y Precios Base
+            </h3>
+            <button onclick="openModalNuevoServicio()" class="px-3 py-1.5 bg-brand-gold hover:bg-brand-goldHover text-black font-bold rounded-lg text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar Servicio
+            </button>
+          </div>
+
+          <div id="listaConfigServicios" class="space-y-3">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Backup y Resguardo de Datos -->
+      <div class="bg-brand-card rounded-2xl border border-brand-border p-6">
+        <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+          <i data-lucide="database" class="w-5 h-5 text-brand-gold"></i>
+          Respaldo y Seguridad de Datos
+        </h3>
+        <p class="text-xs text-gray-400 mb-4">
+          Tus datos se guardan de forma permanente y segura en tu navegador. Puedes descargar una copia de seguridad cuando quieras o restaurarla en otra computadora.
+        </p>
+        
+        <div class="flex flex-wrap items-center gap-4">
+          <button onclick="descargarCopiaSeguridad()" class="px-4 py-2.5 bg-brand-dark hover:bg-brand-cardHover border border-brand-border rounded-xl text-xs font-semibold text-white transition-all flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4 text-brand-gold"></i>
+            Descargar Copia de Seguridad (JSON)
+          </button>
+
+          <label class="px-4 py-2.5 bg-brand-dark hover:bg-brand-cardHover border border-brand-border rounded-xl text-xs font-semibold text-white transition-all flex items-center gap-2 cursor-pointer">
+            <i data-lucide="upload" class="w-4 h-4 text-brand-gold"></i>
+            Restaurar Copia de Seguridad
+            <input type="file" id="inputImportBackup" accept=".json" onchange="restaurarCopiaSeguridad(event)" class="sr-only">
+          </label>
+
+          <button onclick="confirmarBorradoDatos()" class="ml-auto px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-semibold transition-all flex items-center gap-2">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            Reiniciar a Valores de Fábrica
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: CIERRE DE CAJA DEL DÍA -->
+  <!-- ============================================================ -->
+  <div id="modalCierreCaja" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-scaleUp">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-brand-border">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-black text-white">Cierre de Caja Diario</h3>
+            <p class="text-xs text-gray-400" id="modalCierreFechaText">Balance y arqueo final del día</p>
+          </div>
+        </div>
+        <button onclick="closeModalCierreCaja()" class="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-brand-dark">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Resumen Cuadre de Caja -->
+      <div class="space-y-3 bg-brand-dark p-4 rounded-xl border border-brand-border text-sm">
+        <div class="flex justify-between items-center py-1">
+          <span class="text-gray-400 flex items-center gap-2"><i data-lucide="banknote" class="w-4 h-4 text-emerald-400"></i> Efectivo a contar en el cajón:</span>
+          <span class="font-bold text-emerald-400 text-lg" id="modalCierreEfectivo">$0</span>
+        </div>
+        <div class="flex justify-between items-center py-1">
+          <span class="text-gray-400 flex items-center gap-2"><img src="img/mercadopago.jpg" alt="MP" class="w-5 h-5 rounded object-contain inline-block bg-white p-0.5"> Acreditado en Mercado Pago:</span>
+          <span class="font-bold text-sky-400 text-lg" id="modalCierreMp">$0</span>
+        </div>
+        <div class="border-t border-brand-border pt-2 flex justify-between items-center font-bold">
+          <span class="text-white text-base">💰 TOTAL GENERAL RECAUDADO:</span>
+          <span class="text-brand-gold text-xl font-black" id="modalCierreTotalGeneral">$0</span>
+        </div>
+        <div class="text-xs text-gray-400 flex justify-between">
+          <span>Cantidad de cortes realizados hoy:</span>
+          <span class="font-semibold text-white" id="modalCierreTotalCortes">0</span>
+        </div>
+      </div>
+
+      <!-- Desglose por Barbero en Modal -->
+      <div>
+        <h4 class="text-xs uppercase tracking-wider font-bold text-gray-400 mb-2">Liquidación de Barberos Hoy:</h4>
+        <div id="modalCierreBarberosList" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
+      <!-- Acciones de Cierre -->
+      <div id="modalCierreAcciones" class="pt-2 flex flex-col sm:flex-row items-center gap-3">
+        <button onclick="compartirWhatsAppResumen()" class="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+          <i data-lucide="share-2" class="w-4 h-4"></i> Enviar por WhatsApp
+        </button>
+        <button onclick="imprimirTicketCierre()" class="w-full sm:w-auto px-4 py-2.5 bg-brand-dark hover:bg-brand-cardHover border border-brand-border rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-2">
+          <i data-lucide="printer" class="w-4 h-4"></i> Imprimir Ticket
+        </button>
+        <button onclick="ejecutarCierreCajaDefinitivo()" class="w-full sm:flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-600/30">
+          <i data-lucide="check" class="w-4 h-4"></i> Finalizar y Cerrar Día
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: AGREGAR / EDITAR BARBERO -->
+  <!-- ============================================================ -->
+  <div id="modalBarbero" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <h3 class="text-base font-bold text-white" id="modalBarberoTitle">Nuevo Barbero</h3>
+        <button onclick="closeModalBarbero()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="formBarbero" onsubmit="guardarBarbero(event)" class="space-y-4">
+        <input type="hidden" id="barberoEditId">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Nombre del Barbero</label>
+          <input type="text" id="inputBarberoNombre" required placeholder="Ej. Mateo, Carlos..." class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+        </div>
+        <input type="hidden" id="inputBarberoComision" value="100">
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModalBarbero()" class="px-4 py-2 bg-brand-dark text-gray-400 hover:text-white rounded-xl text-xs font-semibold">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-brand-gold hover:bg-brand-goldHover text-black font-bold rounded-xl text-xs">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: AGREGAR / EDITAR SERVICIO -->
+  <!-- ============================================================ -->
+  <div id="modalServicio" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <h3 class="text-base font-bold text-white" id="modalServicioTitle">Nuevo Servicio</h3>
+        <button onclick="closeModalServicio()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="formServicio" onsubmit="guardarServicio(event)" class="space-y-4">
+        <input type="hidden" id="servicioEditId">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Nombre del Servicio</label>
+          <input type="text" id="inputServicioNombre" required placeholder="Ej. Corte Clásico, Barba, Combo..." class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Precio Sugerido ($)</label>
+          <input type="number" id="inputServicioPrecio" min="0" step="50" required placeholder="Ej. 8000" class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-gold">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModalServicio()" class="px-4 py-2 bg-brand-dark text-gray-400 hover:text-white rounded-xl text-xs font-semibold">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-brand-gold hover:bg-brand-goldHover text-black font-bold rounded-xl text-xs">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: AGREGAR / EDITAR CLIENTE -->
+  <!-- ============================================================ -->
+  <div id="modalCliente" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <div class="flex items-center gap-2">
+          <div class="p-2 rounded-lg bg-brand-gold/15 text-brand-gold">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+          </div>
+          <h3 class="text-base font-bold text-white" id="modalClienteTitle">Nuevo Cliente</h3>
+        </div>
+        <button onclick="closeModalCliente()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formCliente" onsubmit="guardarCliente(event)" class="space-y-4">
+        <input type="hidden" id="clienteEditId">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Nombre y Apellido *</label>
+          <input type="text" id="inputClienteNombre" required placeholder="Ej. Juan Pérez" class="w-full bg-brand-dark border border-brand-border rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-gold">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Teléfono / WhatsApp</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500"><i data-lucide="phone" class="w-4 h-4"></i></span>
+            <input type="tel" id="inputClienteTelefono" placeholder="Ej. 11 2345 6789" class="w-full bg-brand-dark border border-brand-border rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-gold">
+          </div>
+          <p class="text-[11px] text-gray-500 mt-1">Permite contactarlo por WhatsApp en 1 clic.</p>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Precio Mensual Sugerido ($)</label>
+          <input type="number" id="inputClientePrecioMembresia" min="0" step="500" value="25000" placeholder="25000" class="w-full bg-brand-dark border border-brand-border rounded-xl px-3.5 py-2.5 text-sm font-bold text-brand-gold focus:outline-none focus:border-brand-gold">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Notas / Preferencias (Opcional)</label>
+          <textarea id="inputClienteNotas" rows="2" placeholder="Ej. Estilo degradé alto, etc." class="w-full bg-brand-dark border border-brand-border rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"></textarea>
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModalCliente()" class="px-4 py-2 bg-brand-dark text-gray-400 hover:text-white rounded-xl text-xs font-semibold">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 bg-brand-gold hover:bg-brand-goldHover text-black font-bold rounded-xl text-xs flex items-center gap-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i> Guardar Cliente
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: REGISTRAR COBRO DE MEMBRESÍA -->
+  <!-- ============================================================ -->
+  <div id="modalPagoMembresia" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <div class="flex items-center gap-2">
+          <div class="p-2 rounded-lg bg-emerald-500/15 text-emerald-400">
+            <i data-lucide="credit-card" class="w-4 h-4"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">Cobrar Membresía</h3>
+        </div>
+        <button onclick="closeModalPagoMembresia()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formPagoMembresia" onsubmit="ejecutarCobroMembresia(event)" class="space-y-4">
+        <input type="hidden" id="pagoClienteId">
+        <div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border">
+          <span class="text-xs text-gray-400 block">Cliente:</span>
+          <span class="text-base font-bold text-white" id="pagoClienteNombreText">--</span>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Monto a Cobrar ($) *</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-gold font-bold">$</span>
+            <input type="number" id="inputPagoMonto" min="0" step="500" required class="w-full bg-brand-dark border border-brand-border rounded-xl pl-8 pr-4 py-2.5 text-lg font-bold text-brand-gold focus:outline-none focus:border-brand-gold">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-wider font-semibold text-gray-400 mb-2 flex items-center gap-1.5">
+            Medio de Pago
+          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="cursor-pointer">
+              <input type="radio" name="pagoMetodo" value="EFECTIVO" checked class="peer sr-only">
+              <div class="p-3 rounded-xl border border-brand-border bg-brand-dark flex items-center gap-2.5 transition-all peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 peer-checked:text-emerald-400">
+                <i data-lucide="banknote" class="w-4 h-4 text-emerald-400"></i>
+                <span class="text-xs font-bold text-white">Efectivo</span>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="pagoMetodo" value="MERCADOPAGO" class="peer sr-only">
+              <div class="p-3 rounded-xl border border-brand-border bg-brand-dark flex items-center gap-2.5 transition-all peer-checked:border-sky-500 peer-checked:bg-sky-500/10 peer-checked:text-sky-400">
+                <img src="img/mercadopago.jpg" class="w-4 h-4 rounded object-contain bg-white p-[1px]">
+                <span class="text-xs font-bold text-white">Mercado Pago</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1 font-medium">Fecha de Pago</label>
+            <input type="date" id="inputPagoFecha" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1 font-medium">Validez (días)</label>
+            <input type="number" id="inputPagoDias" min="1" max="365" value="30" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold">
+          </div>
+        </div>
+
+        <div class="p-3 bg-brand-dark rounded-xl border border-brand-border">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="checkRegistrarPagoEnCaja" checked class="rounded bg-brand-card border-brand-border text-brand-gold focus:ring-0">
+            <span class="text-xs text-gray-300 font-medium">Sumar cobro a la Caja del Día de hoy</span>
+          </label>
+          <p class="text-[11px] text-gray-500 mt-1 pl-5">Recomendado para que el total en efectivo / Mercado Pago coincida exactamente.</p>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModalPagoMembresia()" class="px-4 py-2 bg-brand-dark text-gray-400 hover:text-white rounded-xl text-xs font-semibold">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/25">
+            <i data-lucide="check-circle" class="w-4 h-4"></i> Confirmar y Activar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: REGISTRAR CORTE DIRECTO A CLIENTE CON MEMBRESÍA -->
+  <!-- ============================================================ -->
+  <div id="modalCorteMembresia" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <div class="flex items-center gap-2">
+          <div class="p-2 rounded-lg bg-brand-gold/15 text-brand-gold">
+            <i data-lucide="scissors" class="w-4 h-4"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">Registrar Corte de Membresía</h3>
+        </div>
+        <button onclick="closeModalCorteMembresia()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formCorteMembresia" onsubmit="ejecutarCorteMembresia(event)" class="space-y-4">
+        <input type="hidden" id="corteMembresiaClienteId">
+        <div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border flex items-center justify-between">
+          <div>
+            <span class="text-xs text-gray-400 block">Cliente:</span>
+            <span class="text-base font-bold text-white" id="corteMembresiaClienteNombre">--</span>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
+            Membresía Activa
+          </span>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Barbero que realiza el corte</label>
+          <div class="p-2.5 bg-brand-dark rounded-xl border border-brand-border flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg overflow-hidden border border-brand-border">
+              <img src="img/laureano.jpg" alt="Laureano" class="w-full h-full object-cover">
+            </div>
+            <span class="text-sm font-bold text-white">Laureano</span>
+            <input type="hidden" id="corteMembresiaBarberoId" value="barbero-1">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Servicio</label>
+          <select id="corteMembresiaServicioSelect" class="w-full bg-brand-dark border border-brand-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-gold">
+            <option value="Corte">Corte</option>
+            <option value="Corte y Barba">Corte y Barba</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1 font-medium">Fecha</label>
+            <input type="date" id="corteMembresiaFecha" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1 font-medium">Hora</label>
+            <input type="time" id="corteMembresiaHora" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold">
+          </div>
+        </div>
+
+        <div class="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-xs text-emerald-400 flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0"></i>
+          <span>El corte se computa a Laureano con monto <strong>$0</strong> al estar cubierto por la membresía.</span>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModalCorteMembresia()" class="px-4 py-2 bg-brand-dark text-gray-400 hover:text-white rounded-xl text-xs font-semibold">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-brand-gold to-amber-500 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-brand-gold/20">
+            <i data-lucide="check" class="w-4 h-4"></i> Confirmar Corte
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: HISTORIAL DEL CLIENTE (CORTES Y PAGOS) -->
+  <!-- ============================================================ -->
+  <div id="modalHistorialCliente" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <div>
+          <h3 class="text-base font-bold text-white" id="historialClienteNombre">Historial del Cliente</h3>
+          <p class="text-xs text-gray-400" id="historialClienteTelefono">--</p>
+        </div>
+        <button onclick="closeModalHistorialCliente()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Resumen de Membresía del Cliente -->
+      <div id="historialClienteResumenMembresia" class="p-3.5 rounded-xl border"></div>
+
+      <!-- Listas de Cortes y Pagos -->
+      <div class="space-y-4">
+        <div>
+          <h4 class="text-xs uppercase tracking-wider font-bold text-gray-400 mb-2 flex items-center gap-1.5">
+            <i data-lucide="scissors" class="w-3.5 h-3.5 text-brand-gold"></i> Cortes Realizados (<span id="historialClienteTotalCortes">0</span>)
+          </h4>
+          <div id="historialClienteListaCortes" class="space-y-1.5 max-h-44 overflow-y-auto pr-1"></div>
+        </div>
+
+        <div class="pt-2 border-t border-brand-border/60">
+          <h4 class="text-xs uppercase tracking-wider font-bold text-gray-400 mb-2 flex items-center gap-1.5">
+            <i data-lucide="credit-card" class="w-3.5 h-3.5 text-emerald-400"></i> Historial de Pagos de Membresía (<span id="historialClienteTotalPagos">0</span>)
+          </h4>
+          <div id="historialClienteListaPagos" class="space-y-1.5 max-h-36 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeModalHistorialCliente()" class="px-5 py-2 bg-brand-dark text-gray-300 hover:text-white rounded-xl text-xs font-semibold">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: NUEVO TURNO MANUAL (MOSTRADOR / TELÉFONO) -->
+  <!-- ============================================================ -->
+  <div id="modalNuevoTurno" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <div class="flex items-center gap-2">
+          <div class="p-2 rounded-lg bg-brand-gold/15 text-brand-gold">
+            <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">Agendar Turno Manual</h3>
+        </div>
+        <button onclick="closeModalNuevoTurno()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formTurnoManual" onsubmit="guardarTurnoManual(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Barbero *</label>
+          <select id="inputTurnoManualBarbero" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold" onchange="actualizarSlotsTurnoManual()">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Servicio *</label>
+          <select id="inputTurnoManualServicio" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1 font-medium">Fecha *</label>
+            <input type="date" id="inputTurnoManualFecha" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold" onchange="actualizarSlotsTurnoManual()">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1 font-medium">Horario (45 min) *</label>
+            <select id="inputTurnoManualHora" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold">
+              <!-- Dinámico -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Nombre y Apellido del Cliente *</label>
+          <input type="text" id="inputTurnoManualNombre" required placeholder="Ej: Santiago Pérez" class="w-full bg-brand-dark border border-brand-border rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-gold">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Teléfono / WhatsApp *</label>
+          <input type="tel" id="inputTurnoManualTelefono" required placeholder="Ej: 11 2345 6789" class="w-full bg-brand-dark border border-brand-border rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-gold">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 font-medium">Notas / Observaciones (Opcional)</label>
+          <input type="text" id="inputTurnoManualNotas" placeholder="Ej: Corte con navaja..." class="w-full bg-brand-dark border border-brand-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-brand-gold">
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModalNuevoTurno()" class="px-4 py-2 bg-brand-dark text-gray-400 hover:text-white rounded-xl text-xs font-semibold">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 bg-brand-gold hover:bg-brand-goldHover text-black font-bold rounded-xl text-xs flex items-center gap-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i> Guardar Turno
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PANTALLA DE ACCESO / LOGIN (BARBERO VS DUEÑO) -->
+  <!-- ============================================================ -->
+  <div id="loginScreen" class="fixed inset-0 z-50 bg-[#0A0B0E]/95 backdrop-blur-md hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div id="loginCardContainer" class="bg-brand-card border border-brand-border/80 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-6 relative overflow-hidden animate-scaleUp">
+      <!-- Ambient gold glow effect -->
+      <div class="absolute -top-20 -right-20 w-48 h-48 bg-brand-gold/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-20 -left-20 w-48 h-48 bg-brand-gold/5 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Branding Header -->
+      <div class="text-center space-y-3 relative z-10">
+        <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-brand-gold shadow-xl shadow-brand-gold/20 mx-auto bg-black p-0.5">
+          <img src="img/logo.jpg" alt="Cero y Medio" class="w-full h-full object-cover rounded-full">
+        </div>
+        <div>
+          <h2 class="text-2xl font-black tracking-tight text-white">Cero y <span class="text-brand-gold">Medio</span></h2>
+          <p class="text-xs text-gray-400 mt-0.5">Sistema de Gestión & Control</p>
+        </div>
+      </div>
+
+      <!-- Selector de Perfil -->
+      <div class="space-y-2 relative z-10">
+        <label class="text-xs uppercase tracking-wider font-bold text-gray-400 block text-center">Selecciona tu Perfil</label>
+        <div class="grid grid-cols-3 gap-2 sm:gap-3">
+          <!-- Perfil Laureano (Barbero) -->
+          <button type="button" id="loginCardBarbero" onclick="seleccionarPerfilLogin('barbero')" class="p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-gold bg-brand-gold/10 text-white shadow-lg shadow-brand-gold/10">
+            <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-gold shadow flex-shrink-0 bg-brand-dark">
+              <img src="img/laureano.jpg" alt="Laureano" class="w-full h-full object-cover object-top">
+            </div>
+            <div>
+              <span class="block text-xs sm:text-sm font-bold text-white leading-tight">Laureano</span>
+              <span class="text-[10px] font-medium text-brand-gold">Barbero</span>
+            </div>
+            <div id="checkBarbero" class="absolute top-2 right-2 text-brand-gold">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+            </div>
+          </button>
+
+          <!-- Perfil José (Dueño) -->
+          <button type="button" id="loginCardDueno" onclick="seleccionarPerfilLogin('dueno')" class="p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-border bg-brand-dark/60 text-gray-300 hover:border-gray-600">
+            <div class="w-12 h-12 rounded-full border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/20 to-amber-700/20 flex items-center justify-center flex-shrink-0 text-amber-400 shadow">
+              <i data-lucide="crown" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <span class="block text-xs sm:text-sm font-bold text-white leading-tight">José</span>
+              <span class="text-[10px] font-medium text-amber-400/80">Dueño</span>
+            </div>
+            <div id="checkDueno" class="absolute top-2 right-2 text-brand-gold hidden">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+            </div>
+          </button>
+
+          <!-- Perfil Diego (Dueño) -->
+          <button type="button" id="loginCardDiego" onclick="seleccionarPerfilLogin('diego')" class="p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-border bg-brand-dark/60 text-gray-300 hover:border-gray-600">
+            <div class="w-12 h-12 rounded-full border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/20 to-amber-700/20 flex items-center justify-center flex-shrink-0 text-amber-400 shadow">
+              <i data-lucide="crown" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <span class="block text-xs sm:text-sm font-bold text-white leading-tight">Diego</span>
+              <span class="text-[10px] font-medium text-amber-400/80">Dueño</span>
+            </div>
+            <div id="checkDiego" class="absolute top-2 right-2 text-brand-gold hidden">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Input de Clave PIN y Teclado Numérico -->
+      <form id="formLoginAuth" onsubmit="event.preventDefault(); submitLoginAuth();" class="space-y-4 relative z-10">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label id="loginPinLabel" class="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+              <i data-lucide="key" class="w-3.5 h-3.5 text-brand-gold"></i>
+              <span>Ingresa el PIN de Laureano</span>
+            </label>
+            <span class="text-[11px] text-gray-500 font-mono">4 dígitos</span>
+          </div>
+
+          <input type="password" id="loginPinInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••" autocomplete="off"
+            class="w-full text-center text-3xl tracking-[0.4em] font-mono py-3 rounded-2xl bg-brand-dark border-2 border-brand-border focus:border-brand-gold focus:outline-none text-white transition-all shadow-inner placeholder:text-gray-600">
+        </div>
+
+        <!-- Teclado Numérico Táctil / Clic -->
+        <div class="grid grid-cols-3 gap-2 select-none">
+          <button type="button" onclick="keypadAddDigit('1')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">1</button>
+          <button type="button" onclick="keypadAddDigit('2')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">2</button>
+          <button type="button" onclick="keypadAddDigit('3')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">3</button>
+          <button type="button" onclick="keypadAddDigit('4')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">4</button>
+          <button type="button" onclick="keypadAddDigit('5')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">5</button>
+          <button type="button" onclick="keypadAddDigit('6')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">6</button>
+          <button type="button" onclick="keypadAddDigit('7')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">7</button>
+          <button type="button" onclick="keypadAddDigit('8')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">8</button>
+          <button type="button" onclick="keypadAddDigit('9')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">9</button>
+          <button type="button" onclick="keypadClear()" class="py-3 rounded-xl bg-brand-dark hover:bg-red-500/20 text-xs font-bold text-gray-400 hover:text-red-400 active:scale-95 transition-all border border-brand-border/60 uppercase">C</button>
+          <button type="button" onclick="keypadAddDigit('0')" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-lg font-bold text-gray-100 active:scale-95 transition-all border border-brand-border/60">0</button>
+          <button type="button" onclick="keypadBackspace()" class="py-3 rounded-xl bg-brand-dark hover:bg-brand-border/60 text-gray-400 hover:text-white active:scale-95 transition-all border border-brand-border/60 flex items-center justify-center">
+            <i data-lucide="delete" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Mensaje de Error -->
+        <div id="loginErrorMsg" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/30 px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 font-semibold">
+          <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+          <span id="loginErrorText">Clave incorrecta.</span>
+        </div>
+
+        <!-- Botón Ingresar -->
+        <button type="submit" id="btnLoginSubmit" class="w-full py-3.5 bg-gradient-to-r from-brand-gold to-yellow-500 hover:from-brand-goldHover hover:to-yellow-600 text-black font-extrabold rounded-2xl shadow-lg shadow-brand-gold/25 flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition-all transform active:scale-[0.98]">
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          <span>Ingresar al Sistema</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- AREA DE IMPRESIÓN OCULTA (TICKET DE CIERRE) -->
+  <div id="printArea" class="hidden"></div>
+
+  <!-- JS SCRIPTS -->
+  <script src="js/data.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

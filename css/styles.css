@@ -1,0 +1,135 @@
+/* Custom styles & animations for BarberControl */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #121316;
+}
+::-webkit-scrollbar-thumb {
+  background: #2A2E39;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37;
+}
+
+/* Nav button active states */
+.nav-btn {
+  color: #9CA3AF;
+}
+.nav-btn:hover {
+  color: #FFFFFF;
+  background-color: #23262F;
+}
+.nav-btn.active {
+  background-color: #D4AF37;
+  color: #000000;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
+}
+
+/* Selection card styles for Barbers */
+.barbero-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.barbero-btn.selected {
+  border-color: #D4AF37;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.4);
+}
+.barbero-btn.selected .barbero-avatar {
+  background-color: #D4AF37;
+  color: #000000;
+  font-weight: 800;
+}
+.barbero-btn.selected .barbero-name {
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+/* Selection card styles for Services */
+.servicio-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.servicio-btn.selected {
+  border-color: #D4AF37;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.4);
+}
+.servicio-btn.selected .servicio-price {
+  color: #D4AF37;
+  font-weight: 800;
+}
+
+/* Keyframe animations */
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-scaleUp {
+  animation: scaleUp 0.18s ease-out forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slideIn {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+.animate-shake {
+  animation: shake 0.35s ease-in-out;
+}
+
+/* Print Ticket Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printArea, #printArea * {
+    visibility: visible;
+  }
+  #printArea {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0 auto;
+    padding: 10px;
+    font-family: 'Courier New', Courier, monospace;
+    color: #000000;
+    background: #FFFFFF;
+    font-size: 12px;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

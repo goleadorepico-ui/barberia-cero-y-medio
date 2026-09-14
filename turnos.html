@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reserva de Turnos - Cero y Medio Barbería</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              gold: '#D4AF37',
+              goldHover: '#c19e30',
+              dark: '#121316',
+              card: '#1A1C22',
+              cardHover: '#23262F',
+              border: '#2A2E39'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="icon" type="image/jpeg" href="img/logo.jpg">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .slot-btn {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .slot-btn.selected {
+      background-color: #D4AF37 !important;
+      color: #000000 !important;
+      font-weight: 800 !important;
+      border-color: #D4AF37 !important;
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+      transform: scale(1.02);
+    }
+    .slot-btn.occupied {
+      background-color: rgba(239, 68, 68, 0.1) !important;
+      border-color: rgba(239, 68, 68, 0.25) !important;
+      color: #ef4444 !important;
+      cursor: not-allowed !important;
+      opacity: 0.6;
+      text-decoration: line-through;
+    }
+    .slot-btn.passed {
+      background-color: rgba(255, 255, 255, 0.03) !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      color: #6b7280 !important;
+      cursor: not-allowed !important;
+      opacity: 0.4;
+    }
+    .day-pill.active {
+      background-color: #D4AF37 !important;
+      color: #000000 !important;
+      border-color: #D4AF37 !important;
+      font-weight: 700 !important;
+    }
+    .item-card.active {
+      border-color: #D4AF37 !important;
+      background-color: #23262F !important;
+      box-shadow: 0 0 0 1px #D4AF37, 0 10px 25px -5px rgba(212, 175, 55, 0.2);
+    }
+  </style>
+</head>
+<body class="bg-[#0D0E12] text-gray-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-gold selection:text-black">
+
+  <!-- TOP HEADER -->
+  <header class="bg-brand-dark/95 backdrop-blur border-b border-brand-border sticky top-0 z-40 px-4 py-3.5 shadow-lg shadow-black/40">
+    <div class="max-w-4xl mx-auto flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-gold/70 shadow-md shadow-brand-gold/20 flex-shrink-0 bg-black">
+          <img src="img/logo.jpg" alt="Cero y Medio" class="w-full h-full object-cover">
+        </div>
+        <div>
+          <h1 class="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
+            Cero y <span class="text-brand-gold">Medio</span>
+          </h1>
+          <p class="text-xs text-gray-400">Reserva de Turnos Online</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Lun a Sáb 09:00 a 20:00 hs</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-3xl w-full mx-auto px-4 py-6 sm:py-8 space-y-8">
+
+    <!-- HERO INTRO -->
+    <div class="text-center space-y-2 pt-2">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-gold/10 border border-brand-gold/30 text-brand-gold text-xs font-bold uppercase tracking-wider">
+        <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Sistema de Turnos Oficial
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+        Reservá tu turno en simples pasos
+      </h2>
+      <p class="text-xs sm:text-sm text-gray-400 max-w-md mx-auto">
+        Elegí tu barbero de confianza, tu servicio preferido y el horario que mejor te quede. ¡Te esperamos!
+      </p>
+    </div>
+
+    <!-- BOOKING FORM WRAPPER -->
+    <div id="bookingContainer" class="space-y-6">
+
+      <!-- PASO 1: BARBERO -->
+      <section class="bg-brand-card border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xl relative">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-7 h-7 rounded-full bg-brand-gold text-black font-black text-xs flex items-center justify-center shadow-md shadow-brand-gold/30">1</span>
+          <div>
+            <h3 class="text-base font-bold text-white">Elegí tu Barbero</h3>
+            <p class="text-xs text-gray-400">¿Con quién te gustaría cortarte?</p>
+          </div>
+        </div>
+
+        <div id="barberosList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Dinámico -->
+          <div class="animate-pulse bg-brand-dark p-4 rounded-xl border border-brand-border text-xs text-gray-500 text-center">
+            Cargando barberos...
+          </div>
+        </div>
+      </section>
+
+      <!-- PASO 2: SERVICIO -->
+      <section class="bg-brand-card border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xl relative">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-7 h-7 rounded-full bg-brand-gold text-black font-black text-xs flex items-center justify-center shadow-md shadow-brand-gold/30">2</span>
+          <div>
+            <h3 class="text-base font-bold text-white">Elegí el Servicio</h3>
+            <p class="text-xs text-gray-400">Duración estimada: 45 minutos por turno</p>
+          </div>
+        </div>
+
+        <div id="serviciosList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Dinámico -->
+          <div class="animate-pulse bg-brand-dark p-4 rounded-xl border border-brand-border text-xs text-gray-500 text-center">
+            Cargando servicios...
+          </div>
+        </div>
+      </section>
+
+      <!-- PASO 3: FECHA -->
+      <section class="bg-brand-card border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xl relative">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-7 h-7 rounded-full bg-brand-gold text-black font-black text-xs flex items-center justify-center shadow-md shadow-brand-gold/30">3</span>
+          <div class="flex-1">
+            <h3 class="text-base font-bold text-white">Elegí el Día</h3>
+            <p class="text-xs text-gray-400">Atendemos de Lunes a Sábados de 09:00 a 20:00 hs</p>
+          </div>
+        </div>
+
+        <!-- Acceso rápido a días de la semana -->
+        <div class="space-y-3">
+          <div id="quickDaysContainer" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+            <!-- Dinámico: Hoy, Mañana y días siguientes -->
+          </div>
+
+          <!-- Selector de fecha alternativo -->
+          <div class="flex items-center gap-3 pt-1">
+            <label for="inputFecha" class="text-xs text-gray-400 font-medium whitespace-nowrap flex items-center gap-1.5">
+              <i data-lucide="calendar-search" class="w-3.5 h-3.5 text-brand-gold"></i>
+              Otra fecha:
+            </label>
+            <input type="date" id="inputFecha" class="bg-brand-dark border border-brand-border text-white text-xs rounded-xl px-3 py-2 focus:border-brand-gold outline-none transition-all flex-1 max-w-xs">
+          </div>
+          <p id="errorFechaDomingo" class="text-xs text-red-400 font-semibold hidden flex items-center gap-1.5">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+            Los domingos la barbería se encuentra cerrada. Por favor elegí de Lunes a Sábado.
+          </p>
+        </div>
+      </section>
+
+      <!-- PASO 4: HORARIOS DISPONIBLES (45 MIN) -->
+      <section class="bg-brand-card border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xl relative">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <span class="w-7 h-7 rounded-full bg-brand-gold text-black font-black text-xs flex items-center justify-center shadow-md shadow-brand-gold/30">4</span>
+            <div>
+              <h3 class="text-base font-bold text-white">Elegí el Horario</h3>
+              <p class="text-xs text-gray-400" id="infoSlotsText">Seleccioná un turno disponible</p>
+            </div>
+          </div>
+          <!-- Leyenda -->
+          <div class="hidden sm:flex items-center gap-3 text-[11px] text-gray-400">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-brand-gold"></span> Libre
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span> Ocupado
+            </span>
+          </div>
+        </div>
+
+        <div id="slotsContainer" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
+          <!-- Dinámico -->
+          <div class="col-span-full py-8 text-center text-xs text-gray-500 bg-brand-dark/50 rounded-xl border border-brand-border">
+            Elegí primero el barbero y la fecha para consultar los horarios disponibles.
+          </div>
+        </div>
+      </section>
+
+      <!-- PASO 5: DATOS DEL CLIENTE -->
+      <section class="bg-brand-card border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xl relative">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-7 h-7 rounded-full bg-brand-gold text-black font-black text-xs flex items-center justify-center shadow-md shadow-brand-gold/30">5</span>
+          <div>
+            <h3 class="text-base font-bold text-white">Tus Datos de Contacto</h3>
+            <p class="text-xs text-gray-400">Para avisarte y confirmar tu turno</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">
+              Nombre y Apellido <span class="text-red-400">*</span>
+            </label>
+            <div class="relative">
+              <i data-lucide="user" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
+              <input type="text" id="clienteNombre" placeholder="Ej: Santiago Pérez" class="w-full bg-brand-dark border border-brand-border text-white text-sm rounded-xl pl-9 pr-3 py-2.5 focus:border-brand-gold outline-none transition-all placeholder:text-gray-600 font-medium" required>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">
+              Teléfono / WhatsApp <span class="text-red-400">*</span>
+            </label>
+            <div class="relative">
+              <i data-lucide="phone" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
+              <input type="tel" id="clienteTelefono" placeholder="Ej: 11 2345 6789" class="w-full bg-brand-dark border border-brand-border text-white text-sm rounded-xl pl-9 pr-3 py-2.5 focus:border-brand-gold outline-none transition-all placeholder:text-gray-600 font-medium" required>
+            </div>
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">
+              Nota u Observación (Opcional)
+            </label>
+            <div class="relative">
+              <i data-lucide="message-square" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
+              <input type="text" id="clienteNotas" placeholder="Ej: Me gustaría corte degradé con navaja..." class="w-full bg-brand-dark border border-brand-border text-white text-sm rounded-xl pl-9 pr-3 py-2.5 focus:border-brand-gold outline-none transition-all placeholder:text-gray-600 font-medium">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESUMEN Y BOTÓN DE CONFIRMACIÓN -->
+      <section class="bg-gradient-to-r from-brand-card to-brand-dark border-2 border-brand-gold/40 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+        <h4 class="text-sm font-bold text-brand-gold uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-4 h-4"></i> Resumen de tu Reserva
+        </h4>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-black/40 p-3.5 rounded-xl border border-white/5">
+          <div>
+            <span class="text-gray-400 block text-[10px] uppercase font-semibold">Barbero</span>
+            <span id="summaryBarbero" class="font-bold text-white text-sm">--</span>
+          </div>
+          <div>
+            <span class="text-gray-400 block text-[10px] uppercase font-semibold">Servicio</span>
+            <span id="summaryServicio" class="font-bold text-white text-sm">--</span>
+          </div>
+          <div>
+            <span class="text-gray-400 block text-[10px] uppercase font-semibold">Fecha</span>
+            <span id="summaryFecha" class="font-bold text-white text-sm">--</span>
+          </div>
+          <div>
+            <span class="text-gray-400 block text-[10px] uppercase font-semibold">Horario</span>
+            <span id="summaryHora" class="font-bold text-brand-gold text-sm">--</span>
+          </div>
+        </div>
+
+        <button type="button" id="btnConfirmarReserva" onclick="confirmarReservaTurno()" class="w-full py-3.5 px-6 bg-brand-gold hover:bg-brand-goldHover text-black font-extrabold text-base rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-gold/30 active:scale-98 cursor-pointer">
+          <i data-lucide="check" class="w-5 h-5 stroke-[2.5]"></i>
+          <span>Confirmar y Reservar Turno</span>
+        </button>
+
+        <p class="text-[11px] text-gray-500 text-center">
+          Al confirmar, el horario quedará reservado a tu nombre en la barbería de inmediato.
+        </p>
+      </section>
+
+    </div>
+
+    <!-- PANTALLA DE ÉXITO (CONFIRMADO) -->
+    <div id="successCard" class="hidden bg-brand-card border-2 border-brand-gold/70 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6 animate-fade-in">
+      <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <i data-lucide="calendar-check" class="w-8 h-8"></i>
+      </div>
+
+      <div class="space-y-1">
+        <span class="text-xs font-bold text-brand-gold uppercase tracking-widest">¡Turno Reservado con Éxito!</span>
+        <h3 class="text-2xl sm:text-3xl font-black text-white" id="successTitleCliente">¡Te esperamos!</h3>
+        <p class="text-xs sm:text-sm text-gray-300 max-w-md mx-auto">
+          Tu cita quedó agendada en el sistema de <span class="text-brand-gold font-bold">Cero y Medio</span>.
+        </p>
+      </div>
+
+      <!-- Ticket Detallado -->
+      <div class="max-w-md mx-auto bg-brand-dark/90 border border-brand-border rounded-2xl p-5 text-left space-y-3.5 shadow-inner">
+        <div class="flex items-center justify-between border-b border-brand-border pb-3">
+          <span class="text-xs text-gray-400">Código de Turno</span>
+          <span id="successTurnoId" class="text-xs font-mono font-bold text-brand-gold bg-brand-gold/10 px-2.5 py-0.5 rounded-full border border-brand-gold/30">#CM-001</span>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <div class="flex justify-between">
+            <span class="text-gray-400">Barbero:</span>
+            <span id="successBarbero" class="font-bold text-white">--</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Servicio:</span>
+            <span id="successServicio" class="font-bold text-white">--</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Fecha:</span>
+            <span id="successFecha" class="font-bold text-white">--</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Horario:</span>
+            <span id="successHora" class="font-bold text-brand-gold text-sm">--</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Cliente:</span>
+            <span id="successCliente" class="font-bold text-white">--</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Teléfono:</span>
+            <span id="successTelefono" class="font-bold text-white">--</span>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-brand-border text-[11px] text-gray-400 flex items-center gap-2">
+          <i data-lucide="map-pin" class="w-4 h-4 text-brand-gold flex-shrink-0"></i>
+          <span>Presentate 5 minutos antes en el local de la barbería.</span>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="max-w-md mx-auto flex flex-col sm:flex-row gap-3">
+        <a id="btnSuccessWhatsApp" href="#" target="_blank" class="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30">
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+          <span>Avisar por WhatsApp</span>
+        </a>
+        <button onclick="reiniciarFormularioTurno()" class="py-3 px-4 bg-brand-dark hover:bg-brand-cardHover border border-brand-border text-gray-300 hover:text-white font-semibold rounded-xl text-xs sm:text-sm transition-all flex items-center justify-center gap-2">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Reservar Otro Turno</span>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-brand-dark border-t border-brand-border py-6 px-4 text-center text-xs text-gray-500 space-y-1">
+    <p class="font-semibold text-gray-400">Cero y Medio - Barbería Tradicional</p>
+    <p>Horario de atención: Lunes a Sábados de 09:00 a 20:00 hs (Cortes cada 45 min)</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/storage.js"></script>
+  <script>
+    // ESTADO DE LA RESERVA ONLINE
+    const bookingState = {
+      selectedBarbero: null,
+      selectedServicio: null,
+      selectedFecha: null,
+      selectedHora: null,
+      barberos: [],
+      servicios: [],
+      turnosOcupados: []
+    };
+
+    // RANURAS DE 45 MINUTOS DE 09:00 A 20:00 (14 turnos)
+    // 09:00, 09:45, 10:30, 11:15, 12:00, 12:45, 13:30, 14:15, 15:00, 15:45, 16:30, 17:15, 18:00, 18:45, 19:15
+    const TIME_SLOTS = [
+      '09:00', '09:45', '10:30', '11:15',
+      '12:00', '12:45', '13:30', '14:15',
+      '15:00', '15:45', '16:30', '17:15',
+      '18:00', '18:45', '19:15'
+    ];
+
+    // INICIALIZACIÓN
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Configurar fecha inicial (evita domingos)
+      try {
+        configurarFechaInicial();
+      } catch (e) {
+        console.error('Error al configurar fecha:', e);
+      }
+
+      // 2. Sincronizar datos iniciales con el servidor
+      try {
+        await StorageService.syncWithServer();
+      } catch (e) {
+        console.warn('Sync inicial offline:', e);
+      }
+
+      // 3. Cargar barberos y servicios
+      try {
+        cargarDatosIniciales();
+      } catch (e) {
+        console.error('Error al cargar datos:', e);
+      }
+
+      // 4. Actualizar resumen y renderizar ranuras
+      try {
+        actualizarResumen();
+      } catch (e) {
+        console.error('Error al actualizar resumen:', e);
+      }
+
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+
+      // Sincronización periódica para reflejar turnos ocupados en tiempo real
+      setInterval(async () => {
+        try {
+          const changed = await StorageService.syncWithServer();
+          if (changed && bookingState.selectedFecha && bookingState.selectedBarbero) {
+            renderSlots();
+          }
+        } catch (e) {}
+      }, 10000);
+    });
+
+    // CARGAR BARBEROS Y SERVICIOS
+    function cargarDatosIniciales() {
+      bookingState.barberos = StorageService.getBarberos().filter(b => b.activo !== false);
+      bookingState.servicios = StorageService.getServicios();
+
+      renderBarberos();
+      renderServicios();
+
+      // Seleccionar el primer barbero por defecto
+      if (bookingState.barberos.length > 0) {
+        seleccionarBarbero(bookingState.barberos[0].id);
+      }
+      // Seleccionar el primer servicio por defecto
+      if (bookingState.servicios.length > 0) {
+        seleccionarServicio(bookingState.servicios[0].id);
+      }
+    }
+
+    // RENDER BARBEROS
+    function renderBarberos() {
+      const container = document.getElementById('barberosList');
+      if (!container) return;
+
+      if (bookingState.barberos.length === 0) {
+        container.innerHTML = '<p class="text-xs text-gray-500 col-span-full">No hay barberos disponibles en este momento.</p>';
+        return;
+      }
+
+      container.innerHTML = bookingState.barberos.map(b => {
+        const isSelected = bookingState.selectedBarbero && bookingState.selectedBarbero.id === b.id;
+        const foto = b.foto || 'img/laureano.jpg';
+        return `
+          <div onclick="seleccionarBarbero('${b.id}')" class="item-card ${isSelected ? 'active' : ''} p-3.5 rounded-xl border border-brand-border bg-brand-dark hover:bg-brand-cardHover transition-all cursor-pointer flex items-center gap-3.5 group">
+            <div class="w-12 h-12 rounded-full overflow-hidden border-2 ${isSelected ? 'border-brand-gold' : 'border-brand-border group-hover:border-brand-gold/60'} flex-shrink-0 bg-black">
+              <img src="${foto}" alt="${b.nombre}" class="w-full h-full object-cover">
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <h4 class="text-sm font-bold text-white group-hover:text-brand-gold transition-colors">${b.nombre}</h4>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Disponible</span>
+              </div>
+              <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                <i data-lucide="scissors" class="w-3 h-3 text-brand-gold"></i>
+                Barbero Profesional
+              </p>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function seleccionarBarbero(barberoId) {
+      const b = bookingState.barberos.find(x => x.id === barberoId);
+      if (!b) return;
+      bookingState.selectedBarbero = b;
+      renderBarberos();
+      renderSlots();
+      actualizarResumen();
+    }
+
+    // RENDER SERVICIOS
+    function renderServicios() {
+      const container = document.getElementById('serviciosList');
+      if (!container) return;
+
+      container.innerHTML = bookingState.servicios.map(s => {
+        const isSelected = bookingState.selectedServicio && bookingState.selectedServicio.id === s.id;
+        return `
+          <div onclick="seleccionarServicio('${s.id}')" class="item-card ${isSelected ? 'active' : ''} p-3.5 rounded-xl border border-brand-border bg-brand-dark hover:bg-brand-cardHover transition-all cursor-pointer flex items-center justify-between gap-3 group">
+            <div>
+              <h4 class="text-sm font-bold text-white group-hover:text-brand-gold transition-colors">${s.nombre}</h4>
+              <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                <i data-lucide="clock" class="w-3 h-3 text-brand-gold"></i> 45 min
+              </p>
+            </div>
+            <div class="text-right">
+              <span class="text-sm font-extrabold text-brand-gold">$${Number(s.precio).toLocaleString('es-AR')}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function seleccionarServicio(servicioId) {
+      const s = bookingState.servicios.find(x => x.id === servicioId);
+      if (!s) return;
+      bookingState.selectedServicio = s;
+      renderServicios();
+      actualizarResumen();
+    }
+
+    // CONFIGURACIÓN DE FECHAS (LUNES A SÁBADOS)
+    function configurarFechaInicial() {
+      const today = new Date();
+      const input = document.getElementById('inputFecha');
+      
+      // Formato YYYY-MM-DD
+      const formatYMD = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
+      const todayStr = formatYMD(today);
+      if (input) {
+        input.min = todayStr;
+        input.value = todayStr;
+        input.addEventListener('change', (e) => {
+          validarYSeleccionarFecha(e.target.value);
+        });
+      }
+
+      // Si hoy es domingo, pasar por defecto al lunes
+      if (today.getDay() === 0) {
+        const lunes = new Date(today);
+        lunes.setDate(today.getDate() + 1);
+        bookingState.selectedFecha = formatYMD(lunes);
+        if (input) input.value = bookingState.selectedFecha;
+      } else {
+        bookingState.selectedFecha = todayStr;
+      }
+
+      renderQuickDays();
+      renderSlots();
+    }
+
+    // RENDER BOTONES RÁPIDOS DE DÍAS
+    function renderQuickDays() {
+      const container = document.getElementById('quickDaysContainer');
+      if (!container) return;
+
+      const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+      let html = '';
+      const baseDate = new Date();
+
+      // Generar próximos 7 días útiles (evitando domingos)
+      let count = 0;
+      let offset = 0;
+
+      while (count < 6 && offset < 14) {
+        const d = new Date(baseDate);
+        d.setDate(baseDate.getDate() + offset);
+        const dayOfWeek = d.getDay();
+        const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+        offset++;
+        if (dayOfWeek === 0) continue; // Saltar domingo
+
+        const labelDia = count === 0 && d.toDateString() === baseDate.toDateString() ? 'Hoy' : 
+                         count === 1 && offset === 2 ? 'Mañana' : diasSemana[dayOfWeek];
+
+        const isActive = bookingState.selectedFecha === ymd;
+
+        html += `
+          <button type="button" onclick="validarYSeleccionarFecha('${ymd}')" class="day-pill ${isActive ? 'active' : ''} px-3.5 py-2 rounded-xl border border-brand-border bg-brand-dark hover:bg-brand-cardHover text-xs transition-all flex flex-col items-center justify-center min-w-[70px] flex-shrink-0 cursor-pointer">
+            <span class="text-[10px] uppercase ${isActive ? 'text-black' : 'text-gray-400'} font-bold">${labelDia}</span>
+            <span class="text-sm font-extrabold ${isActive ? 'text-black' : 'text-white'}">${d.getDate()}</span>
+            <span class="text-[9px] ${isActive ? 'text-black/70' : 'text-gray-500'}">${meses[d.getMonth()]}</span>
+          </button>
+        `;
+        count++;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function validarYSeleccionarFecha(fechaStr) {
+      const errorElem = document.getElementById('errorFechaDomingo');
+      const input = document.getElementById('inputFecha');
+
+      if (!fechaStr) return;
+
+      // Descomponer YYYY-MM-DD
+      const parts = fechaStr.split('-');
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+
+      // 0 = Domingo
+      if (d.getDay() === 0) {
+        if (errorElem) errorElem.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      if (errorElem) errorElem.classList.add('hidden');
+      bookingState.selectedFecha = fechaStr;
+      bookingState.selectedHora = null; // Reiniciar slot seleccionado
+
+      if (input) input.value = fechaStr;
+
+      renderQuickDays();
+      renderSlots();
+      actualizarResumen();
+    }
+
+    // RENDER RANURAS DE TIEMPO (SLOTS DE 45 MIN)
+    function renderSlots() {
+      const container = document.getElementById('slotsContainer');
+      const infoText = document.getElementById('infoSlotsText');
+      if (!container) return;
+
+      if (!bookingState.selectedFecha || !bookingState.selectedBarbero) {
+        container.innerHTML = '<div class="col-span-full py-6 text-center text-xs text-gray-500">Seleccioná un barbero y una fecha para ver horarios disponibles.</div>';
+        return;
+      }
+
+      // Obtener turnos ya reservados para este barbero y fecha
+      const ocupados = StorageService.getTurnosOcupados(bookingState.selectedFecha, bookingState.selectedBarbero.id);
+      bookingState.turnosOcupados = ocupados;
+
+      // Calcular si la fecha es hoy para deshabilitar turnos que ya pasaron
+      const todayYMD = new Date().toISOString().split('T')[0];
+      const esHoy = bookingState.selectedFecha === todayYMD;
+      const now = new Date();
+      const horaActualMinutos = now.getHours() * 60 + now.getMinutes();
+
+      let slotsLibresCount = 0;
+
+      container.innerHTML = TIME_SLOTS.map(slot => {
+        const isOccupied = ocupados.includes(slot);
+
+        // Validar si el horario ya pasó en el día de hoy
+        const [h, m] = slot.split(':').map(Number);
+        const slotMinutos = h * 60 + m;
+        const isPassed = esHoy && (slotMinutos <= horaActualMinutos + 10); // 10 min de gracia
+
+        const isSelected = bookingState.selectedHora === slot;
+
+        if (!isOccupied && !isPassed) {
+          slotsLibresCount++;
+        }
+
+        let extraClass = '';
+        let disabledAttr = '';
+        let labelTag = '';
+
+        if (isOccupied) {
+          extraClass = 'occupied';
+          disabledAttr = 'disabled title="Turno ya reservado"';
+          labelTag = '<span class="text-[9px] block text-red-400 font-normal">Ocupado</span>';
+        } else if (isPassed) {
+          extraClass = 'passed';
+          disabledAttr = 'disabled title="Horario ya finalizado"';
+          labelTag = '<span class="text-[9px] block text-gray-500 font-normal">Pasado</span>';
+        } else if (isSelected) {
+          extraClass = 'selected';
+          labelTag = '<span class="text-[9px] block text-black font-extrabold">Elegido</span>';
+        } else {
+          extraClass = 'bg-brand-dark hover:bg-brand-cardHover border-brand-border text-white hover:border-brand-gold/50';
+          labelTag = '<span class="text-[9px] block text-emerald-400 font-semibold">Libre</span>';
+        }
+
+        return `
+          <button type="button" 
+                  ${disabledAttr} 
+                  onclick="seleccionarSlot('${slot}')" 
+                  class="slot-btn ${extraClass} p-2.5 sm:p-3 rounded-xl border text-center font-bold text-xs sm:text-sm flex flex-col items-center justify-center">
+            <span>${slot} hs</span>
+            ${labelTag}
+          </button>
+        `;
+      }).join('');
+
+      if (infoText) {
+        infoText.textContent = `${slotsLibresCount} horarios disponibles de 45 min para este día`;
+      }
+    }
+
+    function seleccionarSlot(hora) {
+      bookingState.selectedHora = hora;
+      renderSlots();
+      actualizarResumen();
+    }
+
+    // CALCULAR HORA DE FIN (+45 MIN)
+    function calcularHoraFin(horaInicio) {
+      if (!horaInicio) return '';
+      const [h, m] = horaInicio.split(':').map(Number);
+      const total = h * 60 + m + 45;
+      const finH = String(Math.floor(total / 60)).padStart(2, '0');
+      const finM = String(total % 60).padStart(2, '0');
+      return `${finH}:${finM}`;
+    }
+
+    // ACTUALIZAR RESUMEN VISUAL
+    function actualizarResumen() {
+      const elBarbero = document.getElementById('summaryBarbero');
+      const elServicio = document.getElementById('summaryServicio');
+      const elFecha = document.getElementById('summaryFecha');
+      const elHora = document.getElementById('summaryHora');
+
+      if (elBarbero) {
+        elBarbero.textContent = bookingState.selectedBarbero ? bookingState.selectedBarbero.nombre : 'No seleccionado';
+      }
+      if (elServicio) {
+        if (bookingState.selectedServicio) {
+          elServicio.textContent = `${bookingState.selectedServicio.nombre} ($${Number(bookingState.selectedServicio.precio).toLocaleString('es-AR')})`;
+        } else {
+          elServicio.textContent = 'No seleccionado';
+        }
+      }
+      if (elFecha) {
+        elFecha.textContent = bookingState.selectedFecha ? bookingState.selectedFecha : 'No seleccionada';
+      }
+      if (elHora) {
+        if (bookingState.selectedHora) {
+          const fin = calcularHoraFin(bookingState.selectedHora);
+          elHora.textContent = `${bookingState.selectedHora} a ${fin} hs`;
+        } else {
+          elHora.textContent = 'No seleccionado';
+        }
+      }
+    }
+
+    // CONFIRMAR RESERVA DE TURNO
+    async function confirmarReservaTurno() {
+      const btn = document.getElementById('btnConfirmarReserva');
+      const inputNombre = document.getElementById('clienteNombre');
+      const inputTelefono = document.getElementById('clienteTelefono');
+      const inputNotas = document.getElementById('clienteNotas');
+
+      const nombre = inputNombre ? inputNombre.value.trim() : '';
+      const telefono = inputTelefono ? inputTelefono.value.trim() : '';
+      const notas = inputNotas ? inputNotas.value.trim() : '';
+
+      // Validaciones
+      if (!bookingState.selectedBarbero) {
+        alert('Por favor, selecciona un barbero.');
+        return;
+      }
+      if (!bookingState.selectedServicio) {
+        alert('Por favor, selecciona un servicio.');
+        return;
+      }
+      if (!bookingState.selectedFecha) {
+        alert('Por favor, selecciona la fecha.');
+        return;
+      }
+      if (!bookingState.selectedHora) {
+        alert('Por favor, selecciona un horario de turno disponible.');
+        return;
+      }
+      if (!nombre) {
+        alert('Por favor, ingresa tu Nombre y Apellido.');
+        if (inputNombre) inputNombre.focus();
+        return;
+      }
+      if (!telefono) {
+        alert('Por favor, ingresa tu número de Teléfono / WhatsApp.');
+        if (inputTelefono) inputTelefono.focus();
+        return;
+      }
+
+      // Deshabilitar botón durante el envío
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Reservando turno...';
+        if (window.lucide) lucide.createIcons();
+      }
+
+      try {
+        // Sincronizar previamente para asegurar que el slot no se reservó en los últimos segundos
+        await StorageService.syncWithServer();
+
+        // Validar disponibilidad
+        const ocupados = StorageService.getTurnosOcupados(bookingState.selectedFecha, bookingState.selectedBarbero.id);
+        if (ocupados.includes(bookingState.selectedHora)) {
+          alert('¡Ups! El horario de ' + bookingState.selectedHora + ' hs fue ocupado recientemente por otro cliente. Por favor elige otro horario.');
+          renderSlots();
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="check" class="w-5 h-5 stroke-[2.5]"></i> Confirmar y Reservar Turno';
+            if (window.lucide) lucide.createIcons();
+          }
+          return;
+        }
+
+        const horaFin = calcularHoraFin(bookingState.selectedHora);
+
+        // Guardar turno en el sistema local y central
+        const nuevoTurno = await StorageService.agregarTurno({
+          fecha: bookingState.selectedFecha,
+          hora: bookingState.selectedHora,
+          horaFin: horaFin,
+          clienteNombre: nombre,
+          clienteTelefono: telefono,
+          barberoId: bookingState.selectedBarbero.id,
+          barberoNombre: bookingState.selectedBarbero.nombre,
+          servicioId: bookingState.selectedServicio.id,
+          servicioNombre: bookingState.selectedServicio.nombre,
+          precio: bookingState.selectedServicio.precio,
+          notas: notas,
+          estado: 'pendiente'
+        });
+
+        // Lanzar celebración con confetti
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }
+
+        // Mostrar pantalla de éxito
+        mostrarPantallaExito(nuevoTurno);
+
+      } catch (err) {
+        console.error('Error al reservar turno:', err);
+        alert('No se pudo completar la reserva: ' + (err.message || 'Error de conexión'));
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="check" class="w-5 h-5 stroke-[2.5]"></i> Confirmar y Reservar Turno';
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    // MOSTRAR PANTALLA DE ÉXITO Y TICKET
+    function mostrarPantallaExito(turno) {
+      const container = document.getElementById('bookingContainer');
+      const success = document.getElementById('successCard');
+
+      if (container) container.classList.add('hidden');
+      if (success) success.classList.remove('hidden');
+
+      document.getElementById('successTurnoId').textContent = '#' + turno.id.slice(-6).toUpperCase();
+      document.getElementById('successTitleCliente').textContent = `¡Te esperamos, ${turno.clienteNombre}!`;
+      document.getElementById('successBarbero').textContent = turno.barberoNombre;
+      document.getElementById('successServicio').textContent = `${turno.servicioNombre} ($${Number(turno.precio).toLocaleString('es-AR')})`;
+      document.getElementById('successFecha').textContent = turno.fecha;
+      document.getElementById('successHora').textContent = `${turno.hora} a ${turno.horaFin || calcularHoraFin(turno.hora)} hs`;
+      document.getElementById('successCliente').textContent = turno.clienteNombre;
+      document.getElementById('successTelefono').textContent = turno.clienteTelefono;
+
+      // Link de WhatsApp para el cliente
+      const btnWA = document.getElementById('btnSuccessWhatsApp');
+      if (btnWA) {
+        const msg = encodeURIComponent(
+          `¡Hola Cero y Medio! Acabo de reservar un turno online.\n\n` +
+          `💈 Barbero: ${turno.barberoNombre}\n` +
+          `✂️ Servicio: ${turno.servicioNombre}\n` +
+          `📅 Fecha: ${turno.fecha}\n` +
+          `⏰ Horario: ${turno.hora} hs\n` +
+          `👤 Cliente: ${turno.clienteNombre} (${turno.clienteTelefono})\n\n` +
+          `¡Muchas gracias!`
+        );
+        btnWA.href = `https://wa.me/?text=${msg}`;
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // REINICIAR PARA OTRA RESERVA
+    function reiniciarFormularioTurno() {
+      const container = document.getElementById('bookingContainer');
+      const success = document.getElementById('successCard');
+
+      if (container) container.classList.remove('hidden');
+      if (success) success.classList.add('hidden');
+
+      bookingState.selectedHora = null;
+      document.getElementById('clienteNombre').value = '';
+      document.getElementById('clienteTelefono').value = '';
+      document.getElementById('clienteNotas').value = '';
+
+      renderSlots();
+      actualizarResumen();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Binario pesado de túnel Cloudflare (~55MB)
+cloudflared.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Logs
+*.log
+tunnel.log
+test_tunnel.log
+
+# Archivos de respaldo temporal
+*.bak
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

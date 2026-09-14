@@ -1,0 +1,683 @@
+{
+  "barberos": [
+    {
+      "id": "barbero-1",
+      "nombre": "Laureano",
+      "foto": "img/laureano.jpg",
+      "comision": 50,
+      "activo": true
+    }
+  ],
+  "servicios": [
+    {
+      "id": "srv-1",
+      "nombre": "Corte",
+      "precio": 15000
+    },
+    {
+      "id": "srv-2",
+      "nombre": "Corte y Barba",
+      "precio": 18000
+    }
+  ],
+  "cortes": [
+    {
+      "id": "id-mtyuh6g2-1c8st",
+      "fecha": "2026-09-12",
+      "hora": "17:35",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789245337826
+    },
+    {
+      "id": "id-mtyugvwa-bg9iw",
+      "fecha": "2026-09-12",
+      "hora": "17:35",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789245324154
+    },
+    {
+      "id": "id-mtyugsez-wp0fm",
+      "fecha": "2026-09-12",
+      "hora": "17:35",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789245319643
+    },
+    {
+      "id": "id-mtyts6xp-2frpj",
+      "fecha": "2026-09-12",
+      "hora": "17:06",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789244172061
+    },
+    {
+      "id": "id-mtyt3bgj-pu3ql",
+      "fecha": "2026-09-12",
+      "hora": "16:56",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Membresía Mensual (fghfgh)",
+      "monto": 25000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789243011523
+    },
+    {
+      "id": "id-mtyt33bl-sfbwd",
+      "fecha": "2026-09-12",
+      "hora": "16:56",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789243000977
+    },
+    {
+      "id": "id-mtyt2iu1-n5bp6",
+      "fecha": "2026-09-12",
+      "hora": "16:56",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789242974425
+    },
+    {
+      "id": "id-mtyt26wh-bvrmp",
+      "fecha": "2026-09-12",
+      "hora": "16:55",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789242958961
+    },
+    {
+      "id": "id-mtyt23o1-i8id1",
+      "fecha": "2026-09-12",
+      "hora": "16:55",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789242954769
+    },
+    {
+      "id": "id-mtyt184p-58g19",
+      "fecha": "2026-09-12",
+      "hora": "16:55",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789242913897
+    },
+    {
+      "id": "id-mtyt10cx-fmuo3",
+      "fecha": "2026-09-12",
+      "hora": "16:55",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789242903825
+    },
+    {
+      "id": "id-mtyt0s8h-78jlo",
+      "fecha": "2026-09-12",
+      "hora": "16:54",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789242893298
+    },
+    {
+      "id": "id-mtyt0a9t-45rcq",
+      "fecha": "2026-09-12",
+      "hora": "16:54",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte (fghfgh)",
+      "monto": 0,
+      "metodoPago": "MEMBRESIA",
+      "timestamp": 1789242870017
+    },
+    {
+      "id": "id-mtyt034y-wq0xw",
+      "fecha": "2026-09-12",
+      "hora": "16:54",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Membresía Mensual (fghfgh)",
+      "monto": 25000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242860770
+    },
+    {
+      "id": "id-mtysz3mj-3d1ck",
+      "fecha": "2026-09-12",
+      "hora": "16:53",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242814747
+    },
+    {
+      "id": "id-mtysy5kw-c0q48",
+      "fecha": "2026-09-12",
+      "hora": "16:52",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242770624
+    },
+    {
+      "id": "id-mtysy548-ib1ij",
+      "fecha": "2026-09-12",
+      "hora": "16:52",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242770024
+    },
+    {
+      "id": "id-mtysy47k-gx8g9",
+      "fecha": "2026-09-12",
+      "hora": "16:52",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242768848
+    },
+    {
+      "id": "id-mtysx253-7jg2o",
+      "fecha": "2026-09-12",
+      "hora": "16:51",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242719511
+    },
+    {
+      "id": "id-mtysx20f-7ttcd",
+      "fecha": "2026-09-12",
+      "hora": "16:51",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242719343
+    },
+    {
+      "id": "id-mtysx1vr-hyzjf",
+      "fecha": "2026-09-12",
+      "hora": "16:51",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242719175
+    },
+    {
+      "id": "id-mtysx1qg-3hjmy",
+      "fecha": "2026-09-12",
+      "hora": "16:51",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242718984
+    },
+    {
+      "id": "id-mtysx1lb-3tjyr",
+      "fecha": "2026-09-12",
+      "hora": "16:51",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242718799
+    },
+    {
+      "id": "id-mtysx1jz-igg1q",
+      "fecha": "2026-09-12",
+      "hora": "16:51",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242718751
+    },
+    {
+      "id": "id-mtysx1go-cviix",
+      "fecha": "2026-09-12",
+      "hora": "16:51",
+      "barberoId": "barbero-1",
+      "barberoNombre": "Laureano",
+      "servicioNombre": "Corte",
+      "monto": 15000,
+      "metodoPago": "EFECTIVO",
+      "timestamp": 1789242718632
+    }
+  ],
+  "cierres": [
+    {
+      "id": "id-mtywrxyd-xlhxm",
+      "fecha": "2026-09-12",
+      "fechaLegible": "sábado, 12 de septiembre de 2026",
+      "horaCierre": "18:39",
+      "totalGeneral": 260000,
+      "totalEfectivo": 260000,
+      "totalMercadoPago": 0,
+      "totalTransferencia": 0,
+      "totalCortes": 25,
+      "desgloseBarberos": [
+        {
+          "barberoId": "barbero-1",
+          "nombre": "Laureano",
+          "comision": 50,
+          "cortes": 25,
+          "subtotal": 260000,
+          "gananciaBarbero": 130000,
+          "gananciaLocal": 130000
+        }
+      ],
+      "cortes": [
+        {
+          "id": "id-mtyuh6g2-1c8st",
+          "fecha": "2026-09-12",
+          "hora": "17:35",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789245337826
+        },
+        {
+          "id": "id-mtyugvwa-bg9iw",
+          "fecha": "2026-09-12",
+          "hora": "17:35",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789245324154
+        },
+        {
+          "id": "id-mtyugsez-wp0fm",
+          "fecha": "2026-09-12",
+          "hora": "17:35",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789245319643
+        },
+        {
+          "id": "id-mtyts6xp-2frpj",
+          "fecha": "2026-09-12",
+          "hora": "17:06",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789244172061
+        },
+        {
+          "id": "id-mtyt3bgj-pu3ql",
+          "fecha": "2026-09-12",
+          "hora": "16:56",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Membresía Mensual (fghfgh)",
+          "monto": 25000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789243011523
+        },
+        {
+          "id": "id-mtyt33bl-sfbwd",
+          "fecha": "2026-09-12",
+          "hora": "16:56",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789243000977
+        },
+        {
+          "id": "id-mtyt2iu1-n5bp6",
+          "fecha": "2026-09-12",
+          "hora": "16:56",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789242974425
+        },
+        {
+          "id": "id-mtyt26wh-bvrmp",
+          "fecha": "2026-09-12",
+          "hora": "16:55",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789242958961
+        },
+        {
+          "id": "id-mtyt23o1-i8id1",
+          "fecha": "2026-09-12",
+          "hora": "16:55",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789242954769
+        },
+        {
+          "id": "id-mtyt184p-58g19",
+          "fecha": "2026-09-12",
+          "hora": "16:55",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789242913897
+        },
+        {
+          "id": "id-mtyt10cx-fmuo3",
+          "fecha": "2026-09-12",
+          "hora": "16:55",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789242903825
+        },
+        {
+          "id": "id-mtyt0s8h-78jlo",
+          "fecha": "2026-09-12",
+          "hora": "16:54",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789242893298
+        },
+        {
+          "id": "id-mtyt0a9t-45rcq",
+          "fecha": "2026-09-12",
+          "hora": "16:54",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte (fghfgh)",
+          "monto": 0,
+          "metodoPago": "MEMBRESIA",
+          "timestamp": 1789242870017
+        },
+        {
+          "id": "id-mtyt034y-wq0xw",
+          "fecha": "2026-09-12",
+          "hora": "16:54",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Membresía Mensual (fghfgh)",
+          "monto": 25000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242860770
+        },
+        {
+          "id": "id-mtysz3mj-3d1ck",
+          "fecha": "2026-09-12",
+          "hora": "16:53",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242814747
+        },
+        {
+          "id": "id-mtysy5kw-c0q48",
+          "fecha": "2026-09-12",
+          "hora": "16:52",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242770624
+        },
+        {
+          "id": "id-mtysy548-ib1ij",
+          "fecha": "2026-09-12",
+          "hora": "16:52",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242770024
+        },
+        {
+          "id": "id-mtysy47k-gx8g9",
+          "fecha": "2026-09-12",
+          "hora": "16:52",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242768848
+        },
+        {
+          "id": "id-mtysx253-7jg2o",
+          "fecha": "2026-09-12",
+          "hora": "16:51",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242719511
+        },
+        {
+          "id": "id-mtysx20f-7ttcd",
+          "fecha": "2026-09-12",
+          "hora": "16:51",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242719343
+        },
+        {
+          "id": "id-mtysx1vr-hyzjf",
+          "fecha": "2026-09-12",
+          "hora": "16:51",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242719175
+        },
+        {
+          "id": "id-mtysx1qg-3hjmy",
+          "fecha": "2026-09-12",
+          "hora": "16:51",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242718984
+        },
+        {
+          "id": "id-mtysx1lb-3tjyr",
+          "fecha": "2026-09-12",
+          "hora": "16:51",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242718799
+        },
+        {
+          "id": "id-mtysx1jz-igg1q",
+          "fecha": "2026-09-12",
+          "hora": "16:51",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242718751
+        },
+        {
+          "id": "id-mtysx1go-cviix",
+          "fecha": "2026-09-12",
+          "hora": "16:51",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "monto": 15000,
+          "metodoPago": "EFECTIVO",
+          "timestamp": 1789242718632
+        }
+      ]
+    }
+  ],
+  "clientes": [
+    {
+      "id": "id-mtyszwk8-xpr0q",
+      "nombre": "fghfgh",
+      "telefono": "151515",
+      "notas": "",
+      "fechaAlta": "2026-09-12",
+      "membresia": {
+        "activa": true,
+        "precioMensual": 25000,
+        "fechaInicio": "2026-09-12",
+        "fechaVencimiento": "2026-10-12",
+        "cortesIncluidos": "ilimitado"
+      },
+      "pagos": [
+        {
+          "id": "id-mtyt3bgi-9nhp3",
+          "fecha": "2026-09-12",
+          "hora": "16:56",
+          "monto": 25000,
+          "metodoPago": "EFECTIVO",
+          "fechaInicio": "2026-09-12",
+          "fechaVencimiento": "2026-10-12",
+          "diasValidez": 30,
+          "timestamp": 1789243011522
+        },
+        {
+          "id": "id-mtyt034x-rz5si",
+          "fecha": "2026-09-12",
+          "hora": "16:54",
+          "monto": 25000,
+          "metodoPago": "EFECTIVO",
+          "fechaInicio": "2026-09-12",
+          "fechaVencimiento": "2026-10-12",
+          "diasValidez": 30,
+          "timestamp": 1789242860769
+        }
+      ],
+      "cortes": [
+        {
+          "id": "id-mtyuh6g2-tauwp",
+          "corteGlobalId": "id-mtyuh6g2-1c8st",
+          "fecha": "2026-09-12",
+          "hora": "17:35",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "timestamp": 1789245337826
+        },
+        {
+          "id": "id-mtyt33bm-3g13z",
+          "corteGlobalId": "id-mtyt33bl-sfbwd",
+          "fecha": "2026-09-12",
+          "hora": "16:56",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "timestamp": 1789243000978
+        },
+        {
+          "id": "id-mtyt23o1-jomf9",
+          "corteGlobalId": "id-mtyt23o1-i8id1",
+          "fecha": "2026-09-12",
+          "hora": "16:55",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "timestamp": 1789242954769
+        },
+        {
+          "id": "id-mtyt10cx-373jv",
+          "corteGlobalId": "id-mtyt10cx-fmuo3",
+          "fecha": "2026-09-12",
+          "hora": "16:55",
+          "barberoId": "barbero-1",
+          "barberoNombre": "Laureano",
+          "servicioNombre": "Corte",
+          "timestamp": 1789242903825
+        }
+      ]
+    }
+  ]
+}

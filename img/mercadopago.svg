@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Fondo oficial de la App de Mercado Pago -->
+  <rect width="100" height="100" rx="22" fill="#009EE3"/>
+  
+  <!-- Apretón de manos oficial Mercado Pago en blanco -->
+  <g fill="#FFFFFF">
+    <!-- Mano izquierda y brazo superior -->
+    <path d="M23.5 42.2c-.7-.7-1.7-1.1-2.7-1.1-2.1 0-3.8 1.7-3.8 3.8 0 1 .4 2 1.1 2.7l14.2 14.2c1.5 1.5 3.9 1.5 5.4 0l5.8-5.8c2-2 3.1-4.7 3.1-7.6 0-5.9-4.8-10.7-10.7-10.7-2.9 0-5.6 1.1-7.6 3.1l-4.8 4.8v-3.4z"/>
+    <!-- Mano derecha y brazo inferior -->
+    <path d="M76.5 57.8c.7.7 1.7 1.1 2.7 1.1 2.1 0 3.8-1.7 3.8-3.8 0-1-.4-2-1.1-2.7L67.7 38.2c-1.5-1.5-3.9-1.5-5.4 0l-5.8 5.8c-2 2-3.1 4.7-3.1 7.6 0 5.9 4.8 10.7 10.7 10.7 2.9 0 5.6-1.1 7.6-3.1l4.8-4.8v3.4z"/>
+    <!-- Unión central del saludo -->
+    <path d="M35.6 52.8L52.8 35.6c1.8-1.8 4.6-1.8 6.4 0l3.2 3.2c1.8 1.8 1.8 4.6 0 6.4L45.2 62.4c-1.8 1.8-4.6 1.8-6.4 0l-3.2-3.2c-1.8-1.8-1.8-4.6 0-6.4z"/>
+  </g>
+</svg>

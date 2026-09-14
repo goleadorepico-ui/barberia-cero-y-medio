@@ -1,0 +1,17 @@
+{
+  "name": "barbercontrol",
+  "version": "1.0.0",
+  "description": "Sistema de gestión de barbería, conteo de cortes y cierre de caja automático",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "barberia",
+    "caja",
+    "pos",
+    "mercadopago"
+  ],
+  "author": "",
+  "license": "MIT"
+}
