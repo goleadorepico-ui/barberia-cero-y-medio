@@ -5,7 +5,7 @@ echo =======================================================
 echo          CERO Y MEDIO - SISTEMA DE BARBERIA
 echo =======================================================
 echo.
-python iniciar_sistema.py
+python app.py
 if %errorlevel% neq 0 (
     echo.
     echo Abriendo directamente en tu navegador...

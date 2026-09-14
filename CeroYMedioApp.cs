@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -63,7 +63,7 @@ namespace CeroYMedio
         {
             try
             {
-                string scriptPath = Path.Combine(baseDir, "iniciar_sistema.py");
+                string scriptPath = Path.Combine(baseDir, "app.py");
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = "python";
                 psi.Arguments = "\"" + scriptPath + "\"";
@@ -78,7 +78,7 @@ namespace CeroYMedio
             {
                 try
                 {
-                    string scriptPath = Path.Combine(baseDir, "iniciar_sistema.py");
+                    string scriptPath = Path.Combine(baseDir, "app.py");
                     ProcessStartInfo psi = new ProcessStartInfo("py", "\"" + scriptPath + "\"");
                     psi.WorkingDirectory = baseDir;
                     psi.CreateNoWindow = true;
