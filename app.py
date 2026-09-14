@@ -434,11 +434,6 @@ if __name__ == '__main__':
         print(f'Iniciando con Flask en el puerto {PORT}...')
         app.run(host='0.0.0.0', port=PORT)
     else:
-        # Start standard library HTTP server in background thread
-        server_thread = threading.Thread(target=run_http_server, daemon=True)
-        server_thread.start()
-        time.sleep(1)
-
         # Start tunnel if cloudflared binary is available
         public_url, tunnel_proc = start_tunnel()
         if public_url:
@@ -458,19 +453,21 @@ if __name__ == '__main__':
             print(f'  CELULAR / REMOTO:  {public_url}')
         print('======================================================================')
         print('  Presiona Ctrl+C para detener el servidor.')
-        print('======================================================================\n')
+        print('======================================================================\n', flush=True)
 
-        # Open browser automatically if running on interactive desktop
-        try:
-            if sys.platform.startswith('win'):
+        if sys.platform.startswith('win') and sys.stdin and hasattr(sys.stdin, 'isatty') and sys.stdin.isatty():
+            try:
                 webbrowser.open(f'http://localhost:{PORT}')
-        except Exception:
-            pass
+            except Exception:
+                pass
 
+        socketserver.TCPServer.allow_reuse_address = True
         try:
-            while True:
-                time.sleep(1)
+            with socketserver.TCPServer(('0.0.0.0', PORT), BarberHandler) as httpd:
+                httpd.serve_forever()
         except KeyboardInterrupt:
+            pass
+        finally:
             if tunnel_proc:
                 try:
                     tunnel_proc.terminate()
