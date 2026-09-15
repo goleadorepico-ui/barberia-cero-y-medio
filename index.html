@@ -127,6 +127,11 @@
           <i data-lucide="archive" class="w-4 h-4"></i>
           <span>Historial</span>
         </button>
+        <button onclick="switchTab('tab-semanal')" id="btn-tab-semanal" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap text-amber-400 hover:text-amber-300">
+          <i data-lucide="calendar-range" class="w-4 h-4 text-brand-gold"></i>
+          <span>Cierre Semanal</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold">Dueños</span>
+        </button>
         <button onclick="switchTab('tab-config')" id="btn-tab-config" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" title="Configuración">
           <i data-lucide="settings" class="w-4 h-4"></i>
         </button>
@@ -872,6 +877,164 @@
 
       <div id="historialCierresContainer" class="space-y-4">
         <!-- Rendered dynamically -->
+      </div>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- TAB: CIERRE SEMANAL (LUNES A SÁBADO - DUEÑOS) -->
+    <!-- ============================================================ -->
+    <section id="tab-semanal" class="tab-content hidden space-y-6">
+      
+      <!-- Encabezado y Selector de Semana -->
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-brand-card p-5 rounded-2xl border border-brand-border">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="p-2 rounded-xl bg-amber-500/10 text-brand-gold border border-brand-gold/20">
+              <i data-lucide="calendar-range" class="w-5 h-5 text-brand-gold"></i>
+            </span>
+            <div>
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                Cierre Semanal (Lunes a Sábado)
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold uppercase tracking-wider">Exclusivo Dueños</span>
+              </h2>
+              <p class="text-xs text-gray-400">División automática: 50% para el barbero y 50% neto para la Barbería "Cero y Medio"</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label for="selectSemanaLaboral" class="text-xs text-gray-400 font-medium">Semana:</label>
+            <select id="selectSemanaLaboral" onchange="renderTabSemanal()" class="bg-brand-dark border border-brand-border text-white text-xs font-semibold px-3 py-2 rounded-xl focus:border-brand-gold focus:outline-none shadow-sm">
+              <!-- Rendered dynamically -->
+            </select>
+          </div>
+          <span id="semanaStatusBadge" class="text-xs px-2.5 py-1 rounded-lg bg-brand-dark border border-brand-border text-gray-300 flex items-center gap-1.5 font-medium">
+            <!-- Dynamic status -->
+          </span>
+        </div>
+      </div>
+
+      <!-- Métricas Principales (KPI Cards) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Total Recaudado en la Semana -->
+        <div class="bg-brand-card rounded-2xl p-5 border border-brand-border relative overflow-hidden shadow-lg">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Facturado</span>
+            <span class="p-2 rounded-xl bg-blue-500/10 text-blue-400">
+              <i data-lucide="trending-up" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div id="kpiSemanaTotalGeneral" class="text-2xl font-black text-white">$0</div>
+          <div class="mt-2.5 pt-2.5 border-t border-brand-border flex items-center justify-between text-[11px] text-gray-400">
+            <span>💵 Ef: <b id="kpiSemanaEfectivo" class="text-emerald-400">$0</b></span>
+            <span><img src="img/mercadopago.jpg" class="w-3 h-3 rounded inline-block bg-white"> MP: <b id="kpiSemanaMP" class="text-sky-400">$0</b></span>
+          </div>
+        </div>
+
+        <!-- Ganancia Neta Barbería Cero y Medio (50%) -->
+        <div class="bg-gradient-to-br from-amber-500/10 via-brand-card to-brand-card rounded-2xl p-5 border border-brand-gold/40 relative overflow-hidden shadow-xl shadow-brand-gold/5">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <span class="text-xs font-bold text-brand-gold uppercase tracking-wider flex items-center gap-1">
+                💈 Barbería Cero y Medio
+              </span>
+              <span class="text-[10px] text-amber-300/80 font-medium">50% Ganancia Neta Local</span>
+            </div>
+            <span class="p-2 rounded-xl bg-amber-500/20 text-brand-gold">
+              <i data-lucide="landmark" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div id="kpiSemanaCeroYMedio" class="text-2xl font-black text-brand-gold">$0</div>
+          <div class="mt-2.5 pt-2.5 border-t border-brand-gold/20 text-[11px] text-amber-200/80 flex items-center justify-between">
+            <span>Queda para José y Diego</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-brand-gold/20 text-brand-gold font-bold">50% Neto</span>
+          </div>
+        </div>
+
+        <!-- Total Sueldos Barberos (50%) -->
+        <div class="bg-brand-card rounded-2xl p-5 border border-emerald-500/30 relative overflow-hidden shadow-lg">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">A Pagar Barberos</span>
+              <span class="text-[10px] text-gray-400 block font-medium">50% Liquidación de Cortes</span>
+            </div>
+            <span class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+              <i data-lucide="users" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div id="kpiSemanaBarberos" class="text-2xl font-black text-emerald-400">$0</div>
+          <div class="mt-2.5 pt-2.5 border-t border-brand-border text-[11px] text-gray-400 flex items-center justify-between">
+            <span>Reparto según cortes</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">50% Sueldo</span>
+          </div>
+        </div>
+
+        <!-- Volumen Total de Cortes -->
+        <div class="bg-brand-card rounded-2xl p-5 border border-brand-border relative overflow-hidden shadow-lg">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Cortes de la Semana</span>
+            <span class="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+              <i data-lucide="scissors" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div id="kpiSemanaCortes" class="text-2xl font-black text-white">0</div>
+          <div class="mt-2.5 pt-2.5 border-t border-brand-border text-[11px] text-gray-400 flex items-center justify-between">
+            <span>Período Lun - Sáb</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-brand-dark text-gray-300 font-medium">6 días</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Desglose y Liquidación por Barbero -->
+      <div class="bg-brand-card rounded-2xl border border-brand-border p-5 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-brand-border mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="badge-percent" class="w-5 h-5 text-brand-gold"></i>
+              Liquidación por Barbero (50% Barbero / 50% Cero y Medio)
+            </h3>
+            <p class="text-xs text-gray-400">Cálculo individual y autónomo por cada barbero según los cortes que realizó en la semana</p>
+          </div>
+
+          <!-- Acciones Rápidas -->
+          <div class="flex flex-wrap items-center gap-2" id="semanaAccionesGuardar">
+            <!-- Buttons dynamically populated or static -->
+            <button onclick="compartirWhatsAppCierreSemanal()" class="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+              <i data-lucide="message-circle" class="w-4 h-4"></i>
+              <span>WhatsApp Resumen</span>
+            </button>
+            <button onclick="guardarCierreSemanalActual()" class="px-3.5 py-2 bg-brand-gold hover:bg-brand-goldHover text-black rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-brand-gold/10">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Guardar Cierre Semanal</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tarjetas de Barberos -->
+        <div id="desgloseSemanalBarberos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Historial de Cierres Semanales Previos Guardados -->
+      <div class="bg-brand-card rounded-2xl border border-brand-border p-5 shadow-xl">
+        <div class="flex items-center justify-between pb-4 border-b border-brand-border mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="archive" class="w-5 h-5 text-brand-gold"></i>
+              Historial de Cierres Semanales Guardados
+            </h3>
+            <p class="text-xs text-gray-400">Archivo de cierres semanales cerrados y liquidados para control contable</p>
+          </div>
+        </div>
+
+        <div id="historialCierresSemanalesContainer" class="space-y-4">
+          <!-- Rendered dynamically -->
+        </div>
       </div>
 
     </section>

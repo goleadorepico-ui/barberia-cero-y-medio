@@ -16,6 +16,7 @@ import threading
 import subprocess
 import time
 import re
+import datetime
 
 PORT = int(os.environ.get('PORT', 3000))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -61,6 +62,7 @@ def process_data_update(incoming_data):
             'cierres': [],
             'turnos': [],
             'cortes_adeudados': [],
+            'cierres_semanales': [],
             'deleted_cliente_ids': [],
             'deleted_corte_ids': [],
             'deleted_turno_ids': [],
@@ -224,7 +226,28 @@ def process_data_update(incoming_data):
             final_data['cortes_adeudados'] = existing_adeudados
         final_data['deleted_adeudado_ids'] = list(deleted_adeudado_ids)
 
-        # 8. Restauracion / Importacion de Backup
+        # 8. Cierres Semanales (Lunes a Sabado)
+        existing_cierres_sem = existing_data.get('cierres_semanales', [])
+        if action == 'guardar_cierre_semanal':
+            nuevo_cs = incoming_data.get('cierre_semanal')
+            if nuevo_cs and isinstance(nuevo_cs, dict):
+                c_id = nuevo_cs.get('id')
+                sem_ini = nuevo_cs.get('semanaInicio')
+                sem_fin = nuevo_cs.get('semanaFin')
+                filtered = [c for c in existing_cierres_sem if isinstance(c, dict) and (c.get('id') != c_id and not (c.get('semanaInicio') == sem_ini and c.get('semanaFin') == sem_fin))]
+                filtered.insert(0, nuevo_cs)
+                final_data['cierres_semanales'] = filtered
+            else:
+                final_data['cierres_semanales'] = incoming_data.get('cierres_semanales', existing_cierres_sem)
+        elif action == 'delete_cierre_semanal':
+            cs_id = incoming_data.get('cierreSemanalId')
+            final_data['cierres_semanales'] = [c for c in existing_cierres_sem if isinstance(c, dict) and str(c.get('id')) != str(cs_id)]
+        elif action == 'save_cierres_semanales':
+            final_data['cierres_semanales'] = incoming_data.get('cierres_semanales', [])
+        else:
+            final_data['cierres_semanales'] = existing_cierres_sem
+
+        # 9. Restauracion / Importacion de Backup
         if action == 'import_backup':
             if 'barberos' in incoming_data:
                 final_data['barberos'] = incoming_data['barberos']
@@ -240,6 +263,8 @@ def process_data_update(incoming_data):
                 final_data['turnos'] = incoming_data['turnos']
             if 'cortes_adeudados' in incoming_data:
                 final_data['cortes_adeudados'] = incoming_data['cortes_adeudados']
+            if 'cierres_semanales' in incoming_data:
+                final_data['cierres_semanales'] = incoming_data['cierres_semanales']
             final_data['deleted_cliente_ids'] = []
             final_data['deleted_corte_ids'] = []
             final_data['deleted_turno_ids'] = []
@@ -298,6 +323,10 @@ try:
                         data = json.load(f)
                 except Exception:
                     data = {}
+            if 'cierres_semanales' not in data:
+                data['cierres_semanales'] = []
+            if 'caja_status' not in data:
+                data['caja_status'] = {'estado': 'abierta', 'fecha': datetime.date.today().isoformat()}
             data['serverInfo'] = SERVER_INFO
             return jsonify(data)
 
@@ -358,6 +387,10 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
                         data = json.load(f)
                 except Exception:
                     data = {}
+            if 'cierres_semanales' not in data:
+                data['cierres_semanales'] = []
+            if 'caja_status' not in data:
+                data['caja_status'] = {'estado': 'abierta', 'fecha': datetime.date.today().isoformat()}
             data['serverInfo'] = SERVER_INFO
             self.wfile.write(json.dumps(data).encode('utf-8'))
             return
@@ -405,6 +438,112 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
             super().log_message(format, *args)
         except Exception:
             pass
+
+
+def ejecutar_autocierre_dia(fecha_iso):
+    """Genera el cierre de caja de una fecha si tiene cortes y no esta cerrada."""
+    if not os.path.exists(DATA_FILE):
+        return
+    try:
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        cortes_del_dia = [c for c in data.get('cortes', []) if isinstance(c, dict) and c.get('fecha') == fecha_iso]
+        if not cortes_del_dia:
+            return
+
+        cierres = data.get('cierres', [])
+        ya_cerrado = any(isinstance(ci, dict) and ci.get('fecha') == fecha_iso for ci in cierres)
+        if ya_cerrado:
+            return
+
+        barberos = data.get('barberos', [])
+        total = 0
+        efectivo = 0
+        mp = 0
+        transf = 0
+        desglose = []
+
+        for b in barberos:
+            cortes_b = [c for c in cortes_del_dia if c.get('barberoId') == b.get('id')]
+            subtotal_b = sum(c.get('monto', 0) for c in cortes_b)
+            comision = b.get('comision', 50)
+            ganancia_b = round((subtotal_b * comision) / 100)
+            desglose.append({
+                'barberoId': b.get('id'),
+                'nombre': b.get('nombre'),
+                'comision': comision,
+                'cortes': len(cortes_b),
+                'subtotal': subtotal_b,
+                'gananciaBarbero': ganancia_b,
+                'gananciaLocal': subtotal_b - ganancia_b
+            })
+
+        for c in cortes_del_dia:
+            m = c.get('monto', 0)
+            total += m
+            pago = c.get('metodoPago', 'EFECTIVO')
+            if pago == 'EFECTIVO':
+                efectivo += m
+            elif pago == 'MERCADOPAGO':
+                mp += m
+            else:
+                transf += m
+
+        nuevo_cierre = {
+            'id': f"auto-cierre-{fecha_iso}",
+            'fecha': fecha_iso,
+            'fechaLegible': fecha_iso,
+            'horaCierre': '23:59',
+            'autoCierre': True,
+            'totalGeneral': total,
+            'totalEfectivo': efectivo,
+            'totalMercadoPago': mp,
+            'totalTransferencia': transf,
+            'totalCortes': len(cortes_del_dia),
+            'desgloseBarberos': desglose,
+            'cortes': cortes_del_dia
+        }
+
+        cierres.insert(0, nuevo_cierre)
+        data['cierres'] = cierres
+
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print(f"[AUTO-CIERRE] Caja del dia {fecha_iso} cerrada automaticamente a las 23:59 hs (Total: ${total}).")
+    except Exception as e:
+        print(f"[AUTO-CIERRE ERROR] {e}")
+
+
+def auto_cash_register_daemon():
+    """Hilo en segundo plano para cierre automatico a las 23:59 y apertura automatica a las 00:01."""
+    import time
+    from datetime import datetime, timedelta
+
+    last_checked_minute = None
+
+    while True:
+        try:
+            now = datetime.now()
+            current_time_str = now.strftime('%H:%M')
+            current_date_str = now.strftime('%Y-%m-%d')
+            minute_key = f"{current_date_str}_{current_time_str}"
+
+            if minute_key != last_checked_minute:
+                last_checked_minute = minute_key
+
+                # 1. Cierre automatico a las 23:59
+                if current_time_str == '23:59':
+                    ejecutar_autocierre_dia(current_date_str)
+
+                # 2. Si cambio de dia y el dia anterior tenia cortes sin cerrar (ej: PC en reposo a las 23:59)
+                ayer_date_str = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+                ejecutar_autocierre_dia(ayer_date_str)
+        except Exception:
+            pass
+
+        time.sleep(20)
 
 
 def run_http_server():
@@ -455,6 +594,11 @@ if __name__ == '__main__':
     print('======================================================================')
     print('             CERO Y MEDIO - BARBERIA MODERNA                          ')
     print('======================================================================')
+
+    # Iniciar hilo de autocierre de caja a las 23:59 y reapertura a las 00:01
+    import threading
+    t_auto = threading.Thread(target=auto_cash_register_daemon, daemon=True)
+    t_auto.start()
 
     if HAS_FLASK and os.environ.get('USE_FLASK', '').lower() in ('1', 'true', 'yes'):
         print(f'Iniciando con Flask en el puerto {PORT}...')

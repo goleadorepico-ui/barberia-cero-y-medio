@@ -112,3 +112,75 @@ function getDiasRestantes(fechaVencimiento) {
   const diffTime = venc.getTime() - hoy.getTime();
   return Math.round(diffTime / (1000 * 60 * 60 * 24));
 }
+
+// Obtener la semana laboral (Lunes a Sábado) para una fecha dada (YYYY-MM-DD o Date)
+function getSemanaLaboral(fechaRef) {
+  let dateObj;
+  if (!fechaRef) {
+    dateObj = new Date();
+  } else if (typeof fechaRef === 'string') {
+    const [y, m, d] = fechaRef.split('-');
+    dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+  } else {
+    dateObj = new Date(fechaRef);
+  }
+
+  // En JS: 0=Domingo, 1=Lunes, 2=Martes, ..., 6=Sábado
+  const day = dateObj.getDay();
+  // Si es domingo (0), la semana laboral que cerró el sábado arrancó el lunes anterior (-6)
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+
+  const lunes = new Date(dateObj);
+  lunes.setDate(dateObj.getDate() + diffToMonday);
+
+  const sabado = new Date(lunes);
+  sabado.setDate(lunes.getDate() + 5);
+
+  const formatISO = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dayStr}`;
+  };
+
+  const formatShort = (d) => {
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dayStr}/${m}`;
+  };
+
+  const fechaInicio = formatISO(lunes);
+  const fechaFin = formatISO(sabado);
+  const label = `Lun ${formatShort(lunes)} al Sáb ${formatShort(sabado)} (${lunes.getFullYear()})`;
+
+  return {
+    fechaInicio,
+    fechaFin,
+    label,
+    lunesDate: lunes,
+    sabadoDate: sabado
+  };
+}
+
+// Obtener lista de semanas laborales recientes (ej. 8 semanas)
+function getListaSemanasLaborales(cantidad = 8) {
+  const semanas = [];
+  const hoySemana = getSemanaLaboral(new Date());
+
+  for (let i = 0; i < cantidad; i++) {
+    const refDate = new Date(hoySemana.lunesDate);
+    refDate.setDate(refDate.getDate() - (i * 7));
+    const sem = getSemanaLaboral(refDate);
+    let etiqueta = sem.label;
+    if (i === 0) etiqueta = `Esta Semana (${sem.label})`;
+    else if (i === 1) etiqueta = `Semana Anterior (${sem.label})`;
+    semanas.push({
+      id: `${sem.fechaInicio}_${sem.fechaFin}`,
+      fechaInicio: sem.fechaInicio,
+      fechaFin: sem.fechaFin,
+      label: etiqueta
+    });
+  }
+  return semanas;
+}
+

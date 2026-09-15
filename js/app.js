@@ -82,6 +82,16 @@ function initLiveClock() {
     if (inputHorario && !inputHorario.value) {
       inputHorario.value = getCurrentTime();
     }
+
+    // Comprobación de auto-cierre a las 23:59 y auto-apertura a las 00:01
+    const hours = now.getHours();
+    const mins = now.getMinutes();
+    const secs = now.getSeconds();
+    if ((hours === 23 && mins === 59 && secs === 1) || (hours === 0 && mins === 1 && secs === 1)) {
+      if (typeof syncWithServer === 'function') {
+        syncWithServer();
+      }
+    }
   }
 
   update();
@@ -92,7 +102,7 @@ function initLiveClock() {
 function switchTab(tabId) {
   const session = StorageService.getSession();
   if (session && session.role !== 'dueno') {
-    if (tabId === 'tab-config' || tabId === 'tab-historial') {
+    if (tabId === 'tab-config' || tabId === 'tab-historial' || tabId === 'tab-semanal') {
       showToast('Esta sección es exclusiva de la administración (Dueños).', 'error');
       return;
     }
@@ -135,6 +145,8 @@ function switchTab(tabId) {
     actualizarLiquidacionesBarberos();
   } else if (tabId === 'tab-historial') {
     renderHistorialCierres();
+  } else if (tabId === 'tab-semanal') {
+    renderTabSemanal();
   } else if (tabId === 'tab-config') {
     renderConfigTab();
   }
@@ -162,6 +174,8 @@ function renderAllViews() {
     renderTabTurnos();
   } else if (appState.currentTab === 'tab-adeudados') {
     renderTabAdeudados();
+  } else if (appState.currentTab === 'tab-semanal') {
+    renderTabSemanal();
   }
   actualizarHeaderTotals();
   checkCajaStatus();
@@ -1379,6 +1393,573 @@ function renderHistorialCierres() {
 function limpiarFiltroFechaHistorial() {
   document.getElementById('filtroFechaHistorial').value = '';
   renderHistorialCierres();
+}
+
+// ============================================================
+// TAB: CIERRE SEMANAL (LUNES A SÁBADO - DUEÑOS)
+// ============================================================
+
+// Renderizar la pestaña de Cierre Semanal
+function renderTabSemanal() {
+  const session = StorageService.getSession();
+  if (session && session.role !== 'dueno') {
+    return;
+  }
+
+  const selectSemana = document.getElementById('selectSemanaLaboral');
+  if (!selectSemana) return;
+
+  // Poblar selector si está vacío
+  if (selectSemana.options.length === 0) {
+    const semanas = getListaSemanasLaborales(10);
+    selectSemana.innerHTML = semanas.map(s => `
+      <option value="${s.id}" data-inicio="${s.fechaInicio}" data-fin="${s.fechaFin}">
+        ${s.label}
+      </option>
+    `).join('');
+  }
+
+  const selectedOpt = selectSemana.options[selectSemana.selectedIndex] || selectSemana.options[0];
+  if (!selectedOpt) return;
+
+  const fechaInicio = selectedOpt.dataset.inicio || selectedOpt.getAttribute('data-inicio');
+  const fechaFin = selectedOpt.dataset.fin || selectedOpt.getAttribute('data-fin');
+  const semanaId = selectedOpt.value;
+
+  // Filtrar cortes realizados dentro del rango Lunes a Sábado inclusive
+  const todosCortes = StorageService.getAllCortes();
+  const cortesSemana = todosCortes.filter(c => c.fecha >= fechaInicio && c.fecha <= fechaFin);
+
+  let totalGeneral = 0;
+  let totalEfectivo = 0;
+  let totalMP = 0;
+
+  cortesSemana.forEach(c => {
+    const m = Number(c.monto) || 0;
+    totalGeneral += m;
+    if (c.metodoPago === 'EFECTIVO') {
+      totalEfectivo += m;
+    } else {
+      totalMP += m;
+    }
+  });
+
+  // Lista de Barberos (dinámica: todos los configurados + los que figuren en cortes)
+  const barberosConfig = StorageService.getBarberos();
+  const barberosMap = new Map();
+
+  barberosConfig.forEach(b => {
+    barberosMap.set(b.nombre.toLowerCase().trim(), {
+      id: b.id,
+      nombre: b.nombre,
+      foto: b.foto || 'img/laureano.jpg'
+    });
+  });
+
+  cortesSemana.forEach(c => {
+    if (c.barberoNombre) {
+      const key = c.barberoNombre.toLowerCase().trim();
+      if (!barberosMap.has(key)) {
+        barberosMap.set(key, {
+          id: c.barberoId || ('b_' + key),
+          nombre: c.barberoNombre,
+          foto: 'img/laureano.jpg'
+        });
+      }
+    }
+  });
+
+  // Calcular métricas individuales y división 50% / 50%
+  const desgloseBarberos = Array.from(barberosMap.values()).map(b => {
+    const key = b.nombre.toLowerCase().trim();
+    const cortesB = cortesSemana.filter(c => {
+      const cKey = (c.barberoNombre || '').toLowerCase().trim();
+      return (c.barberoId && c.barberoId === b.id) || (cKey === key);
+    });
+
+    let totB = 0;
+    let efB = 0;
+    let mpB = 0;
+
+    cortesB.forEach(c => {
+      const m = Number(c.monto) || 0;
+      totB += m;
+      if (c.metodoPago === 'EFECTIVO') {
+        efB += m;
+      } else {
+        mpB += m;
+      }
+    });
+
+    // 50% Barbero y 50% para la Barbería Cero y Medio
+    const gananciaBarbero = Math.round(totB * 0.5);
+    const gananciaLocal = totB - gananciaBarbero;
+
+    return {
+      id: b.id,
+      nombre: b.nombre,
+      foto: b.foto,
+      cortes: cortesB.length,
+      totalFacturado: totB,
+      totalEfectivo: efB,
+      totalMercadoPago: mpB,
+      gananciaBarbero: gananciaBarbero,
+      gananciaLocal: gananciaLocal
+    };
+  });
+
+  // Totales de reparto
+  const totalBarberos = desgloseBarberos.reduce((acc, b) => acc + b.gananciaBarbero, 0);
+  const totalCeroYMedio = desgloseBarberos.reduce((acc, b) => acc + b.gananciaLocal, 0);
+  const totalCortes = cortesSemana.length;
+
+  // Actualizar KPIs en el DOM
+  const kpiTotal = document.getElementById('kpiSemanaTotalGeneral');
+  const kpiEf = document.getElementById('kpiSemanaEfectivo');
+  const kpiMP = document.getElementById('kpiSemanaMP');
+  const kpiCeroYMedio = document.getElementById('kpiSemanaCeroYMedio');
+  const kpiBarberos = document.getElementById('kpiSemanaBarberos');
+  const kpiCortes = document.getElementById('kpiSemanaCortes');
+
+  if (kpiTotal) kpiTotal.textContent = formatCurrency(totalGeneral);
+  if (kpiEf) kpiEf.textContent = formatCurrency(totalEfectivo);
+  if (kpiMP) kpiMP.textContent = formatCurrency(totalMP);
+  if (kpiCeroYMedio) kpiCeroYMedio.textContent = formatCurrency(totalCeroYMedio);
+  if (kpiBarberos) kpiBarberos.textContent = formatCurrency(totalBarberos);
+  if (kpiCortes) kpiCortes.textContent = totalCortes;
+
+  // Estado del cierre (Guardado o Pendiente)
+  const cierresSemanales = StorageService.getAllCierresSemanales();
+  const cierreGuardado = cierresSemanales.find(c => c.semanaId === semanaId || (c.semanaInicio === fechaInicio && c.semanaFin === fechaFin));
+  const badgeEl = document.getElementById('semanaStatusBadge');
+
+  if (badgeEl) {
+    if (cierreGuardado) {
+      badgeEl.className = 'text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1.5 font-bold';
+      badgeEl.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Archivado (${cierreGuardado.guardadoEl || 'Guardado'})`;
+    } else {
+      badgeEl.className = 'text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 border border-brand-gold/30 text-brand-gold flex items-center gap-1.5 font-medium';
+      badgeEl.innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i> En curso / Pendiente`;
+    }
+  }
+
+  // Renderizar tarjetas por Barbero
+  const desgloseContainer = document.getElementById('desgloseSemanalBarberos');
+  if (desgloseContainer) {
+    const barberosConActividad = desgloseBarberos.filter(b => b.cortes > 0 || b.totalFacturado > 0);
+
+    if (barberosConActividad.length === 0) {
+      desgloseContainer.innerHTML = `
+        <div class="col-span-full p-8 bg-brand-dark rounded-xl border border-brand-border text-center text-gray-400">
+          <i data-lucide="scissors" class="w-8 h-8 mx-auto mb-2 opacity-30 text-brand-gold"></i>
+          <p class="text-sm font-semibold text-white">No hay cortes registrados en esta semana laboral</p>
+          <p class="text-xs text-gray-500 mt-1">Período: ${selectedOpt.textContent.trim()} (Lunes a Sábado)</p>
+        </div>
+      `;
+    } else {
+      desgloseContainer.innerHTML = barberosConActividad.map(b => `
+        <div class="bg-brand-dark rounded-xl border border-brand-border p-4.5 flex flex-col justify-between shadow-md hover:border-brand-gold/40 transition-all">
+          <div>
+            <!-- Header barbero -->
+            <div class="flex items-center justify-between pb-3 border-b border-brand-border/70 mb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-xl overflow-hidden border border-brand-border flex-shrink-0 bg-brand-card">
+                  <img src="${b.foto}" alt="${b.nombre}" class="w-full h-full object-cover object-top" onerror="this.src='img/laureano.jpg'">
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white leading-tight">${b.nombre}</h4>
+                  <span class="text-[11px] text-gray-400">Barbero Oficial</span>
+                </div>
+              </div>
+              <span class="text-xs px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 font-bold border border-purple-500/20 flex items-center gap-1">
+                <i data-lucide="scissors" class="w-3 h-3"></i> ${b.cortes} ${b.cortes === 1 ? 'corte' : 'cortes'}
+              </span>
+            </div>
+
+            <!-- Total recaudado por sus cortes -->
+            <div class="mb-3 p-2.5 bg-brand-card rounded-lg border border-brand-border">
+              <div class="flex justify-between items-center text-xs text-gray-400 mb-1">
+                <span>Total Facturado:</span>
+                <span class="font-bold text-white text-sm">${formatCurrency(b.totalFacturado)}</span>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-brand-border/50">
+                <span>💵 Ef: <b class="text-emerald-400 font-medium">${formatCurrency(b.totalEfectivo)}</b></span>
+                <span><img src="img/mercadopago.jpg" class="w-3 h-3 rounded inline-block bg-white"> MP: <b class="text-sky-400 font-medium">${formatCurrency(b.totalMercadoPago)}</b></span>
+              </div>
+            </div>
+
+            <!-- Reparto 50% / 50% -->
+            <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
+              <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-emerald-400 block mb-0.5">Sueldo Barbero (50%)</span>
+                <span class="text-base font-black text-emerald-400">${formatCurrency(b.gananciaBarbero)}</span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-amber-500/10 border border-brand-gold/30">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-brand-gold block mb-0.5">Cero y Medio (50%)</span>
+                <span class="text-base font-black text-brand-gold">${formatCurrency(b.gananciaLocal)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón Enviar WhatsApp al Barbero -->
+          <button onclick="compartirWhatsAppLiquidacionBarbero('${b.nombre.replace(/'/g, "\\'")}')" class="w-full py-2 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 mt-2">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>Enviar Liquidación WhatsApp</span>
+          </button>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Renderizar historial de Cierres Semanales guardados
+  renderHistorialCierresSemanales();
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// Renderizar la lista de cierres semanales previamente guardados
+function renderHistorialCierresSemanales() {
+  const container = document.getElementById('historialCierresSemanalesContainer');
+  if (!container) return;
+
+  const cierres = StorageService.getAllCierresSemanales();
+
+  if (cierres.length === 0) {
+    container.innerHTML = `
+      <div class="p-6 bg-brand-dark rounded-xl border border-brand-border text-center text-gray-500">
+        <i data-lucide="archive" class="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-400"></i>
+        <p class="text-xs font-semibold text-gray-300">Aún no hay cierres semanales archivados.</p>
+        <p class="text-[11px] text-gray-500 mt-0.5">Al presionar "Guardar Cierre Semanal", quedará asentado aquí para control histórico de José y Diego.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = cierres.map(c => `
+    <div class="p-4 bg-brand-dark rounded-xl border border-brand-border flex flex-col gap-3 shadow-md hover:border-brand-gold/30 transition-all">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-2.5 border-b border-brand-border">
+        <div class="flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-brand-gold/10 text-brand-gold">
+            <i data-lucide="calendar-check" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h4 class="text-sm font-bold text-white">${c.semanaLabel || `${c.semanaInicio} al ${c.semanaFin}`}</h4>
+            <p class="text-[11px] text-gray-400">Guardado el ${c.guardadoEl || 'Fecha N/D'} • Por ${c.cerradoPor || 'Dueño'}</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="compartirWhatsAppCierreSemanal('${c.id}')" class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-medium transition-all flex items-center gap-1" title="Reenviar WhatsApp">
+            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">WhatsApp</span>
+          </button>
+          <button onclick="eliminarCierreSemanal('${c.id}')" class="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-medium transition-all flex items-center gap-1" title="Eliminar registro">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Eliminar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen de números del cierre archivado -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        <div class="p-2 rounded-lg bg-brand-card border border-brand-border">
+          <span class="text-[10px] text-gray-400 uppercase font-semibold block">Facturado Total</span>
+          <span class="text-sm font-bold text-white">${formatCurrency(c.totalGeneral)}</span>
+        </div>
+        <div class="p-2 rounded-lg bg-amber-500/10 border border-brand-gold/20">
+          <span class="text-[10px] text-brand-gold uppercase font-bold block">💈 Cero y Medio (50%)</span>
+          <span class="text-sm font-bold text-brand-gold">${formatCurrency(c.totalCeroYMedio)}</span>
+        </div>
+        <div class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <span class="text-[10px] text-emerald-400 uppercase font-bold block">👥 Barberos (50%)</span>
+          <span class="text-sm font-bold text-emerald-400">${formatCurrency(c.totalBarberos)}</span>
+        </div>
+        <div class="p-2 rounded-lg bg-brand-card border border-brand-border">
+          <span class="text-[10px] text-gray-400 uppercase font-semibold block">✂️ Total Cortes</span>
+          <span class="text-sm font-bold text-white">${c.totalCortes || 0}</span>
+        </div>
+      </div>
+
+      <!-- Desglose por Barbero en el cierre archivado -->
+      ${c.desgloseBarberos && c.desgloseBarberos.length > 0 ? `
+        <div class="pt-2 border-t border-brand-border/60">
+          <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-1.5">Liquidación por Barbero:</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            ${c.desgloseBarberos.filter(b => b.cortes > 0 || b.totalFacturado > 0).map(b => `
+              <div class="p-2 rounded-lg bg-brand-card border border-brand-border/60 flex items-center justify-between">
+                <div>
+                  <span class="font-bold text-white block">${b.nombre}</span>
+                  <span class="text-[11px] text-gray-400">${b.cortes} cortes • Facturado: ${formatCurrency(b.totalFacturado)}</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-[10px] text-gray-400 block">Sueldo 50%:</span>
+                  <span class="font-black text-emerald-400">${formatCurrency(b.gananciaBarbero)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+// Guardar y confirmar el Cierre Semanal actual
+async function guardarCierreSemanalActual() {
+  const session = StorageService.getSession();
+  if (session && session.role !== 'dueno') {
+    showToast('Solo los dueños pueden archivar el cierre semanal.', 'error');
+    return;
+  }
+
+  const selectSemana = document.getElementById('selectSemanaLaboral');
+  if (!selectSemana) return;
+
+  const selectedOpt = selectSemana.options[selectSemana.selectedIndex];
+  if (!selectedOpt) return;
+
+  const fechaInicio = selectedOpt.dataset.inicio || selectedOpt.getAttribute('data-inicio');
+  const fechaFin = selectedOpt.dataset.fin || selectedOpt.getAttribute('data-fin');
+  const semanaId = selectedOpt.value;
+  const semanaLabel = selectedOpt.textContent.trim();
+
+  // Calcular cortes y métricas
+  const todosCortes = StorageService.getAllCortes();
+  const cortesSemana = todosCortes.filter(c => c.fecha >= fechaInicio && c.fecha <= fechaFin);
+
+  let totalGeneral = 0;
+  let totalEfectivo = 0;
+  let totalMP = 0;
+
+  cortesSemana.forEach(c => {
+    const m = Number(c.monto) || 0;
+    totalGeneral += m;
+    if (c.metodoPago === 'EFECTIVO') totalEfectivo += m;
+    else totalMP += m;
+  });
+
+  const barberosConfig = StorageService.getBarberos();
+  const barberosMap = new Map();
+  barberosConfig.forEach(b => {
+    barberosMap.set(b.nombre.toLowerCase().trim(), { id: b.id, nombre: b.nombre, foto: b.foto || 'img/laureano.jpg' });
+  });
+  cortesSemana.forEach(c => {
+    if (c.barberoNombre) {
+      const k = c.barberoNombre.toLowerCase().trim();
+      if (!barberosMap.has(k)) {
+        barberosMap.set(k, { id: c.barberoId || ('b_' + k), nombre: c.barberoNombre, foto: 'img/laureano.jpg' });
+      }
+    }
+  });
+
+  const desgloseBarberos = Array.from(barberosMap.values()).map(b => {
+    const k = b.nombre.toLowerCase().trim();
+    const cortesB = cortesSemana.filter(c => (c.barberoId && c.barberoId === b.id) || ((c.barberoNombre || '').toLowerCase().trim() === k));
+    let totB = 0;
+    let efB = 0;
+    let mpB = 0;
+    cortesB.forEach(c => {
+      const m = Number(c.monto) || 0;
+      totB += m;
+      if (c.metodoPago === 'EFECTIVO') efB += m;
+      else mpB += m;
+    });
+    const gananciaBarbero = Math.round(totB * 0.5);
+    const gananciaLocal = totB - gananciaBarbero;
+    return {
+      id: b.id,
+      nombre: b.nombre,
+      foto: b.foto,
+      cortes: cortesB.length,
+      totalFacturado: totB,
+      totalEfectivo: efB,
+      totalMercadoPago: mpB,
+      gananciaBarbero,
+      gananciaLocal
+    };
+  });
+
+  const totalBarberos = desgloseBarberos.reduce((acc, b) => acc + b.gananciaBarbero, 0);
+  const totalCeroYMedio = desgloseBarberos.reduce((acc, b) => acc + b.gananciaLocal, 0);
+
+  const confirmacion = confirm(`¿Deseas guardar y archivar el Cierre Semanal?\n\n📅 ${semanaLabel}\n💰 Total Facturado: ${formatCurrency(totalGeneral)}\n💈 Neto Barbería Cero y Medio (50%): ${formatCurrency(totalCeroYMedio)}\n👥 Total a Barberos (50%): ${formatCurrency(totalBarberos)}\n✂️ Total Cortes: ${cortesSemana.length}`);
+
+  if (!confirmacion) return;
+
+  const cierreData = {
+    id: 'cierre_sem_' + semanaId,
+    semanaId: semanaId,
+    semanaInicio: fechaInicio,
+    semanaFin: fechaFin,
+    semanaLabel: semanaLabel,
+    totalGeneral,
+    totalEfectivo,
+    totalMercadoPago: totalMP,
+    totalCortes: cortesSemana.length,
+    totalCeroYMedio,
+    totalBarberos,
+    desgloseBarberos,
+    cerradoPor: session ? session.name : 'Dueño',
+    guardadoEl: new Date().toLocaleDateString('es-AR') + ' ' + getCurrentTime(),
+    timestamp: Date.now()
+  };
+
+  await StorageService.guardarCierreSemanal(cierreData);
+  showToast('¡Cierre semanal archivado exitosamente!', 'success');
+  renderTabSemanal();
+}
+
+// Compartir resumen de cierre semanal completo por WhatsApp
+function compartirWhatsAppCierreSemanal(cierreId = null) {
+  let cierre = null;
+
+  if (cierreId) {
+    const list = StorageService.getAllCierresSemanales();
+    cierre = list.find(c => c.id === cierreId);
+  }
+
+  if (!cierre) {
+    // Tomar los datos de la semana actualmente seleccionada
+    const selectSemana = document.getElementById('selectSemanaLaboral');
+    if (!selectSemana) return;
+    const selectedOpt = selectSemana.options[selectSemana.selectedIndex];
+    if (!selectedOpt) return;
+
+    const fechaInicio = selectedOpt.dataset.inicio || selectedOpt.getAttribute('data-inicio');
+    const fechaFin = selectedOpt.dataset.fin || selectedOpt.getAttribute('data-fin');
+    const todosCortes = StorageService.getAllCortes();
+    const cortesSemana = todosCortes.filter(c => c.fecha >= fechaInicio && c.fecha <= fechaFin);
+
+    let totalGeneral = 0;
+    let totalEfectivo = 0;
+    let totalMP = 0;
+    cortesSemana.forEach(c => {
+      const m = Number(c.monto) || 0;
+      totalGeneral += m;
+      if (c.metodoPago === 'EFECTIVO') totalEfectivo += m;
+      else totalMP += m;
+    });
+
+    const barberosConfig = StorageService.getBarberos();
+    const barberosMap = new Map();
+    barberosConfig.forEach(b => barberosMap.set(b.nombre.toLowerCase().trim(), b.nombre));
+    cortesSemana.forEach(c => {
+      if (c.barberoNombre) barberosMap.set(c.barberoNombre.toLowerCase().trim(), c.barberoNombre);
+    });
+
+    const desglose = Array.from(barberosMap.values()).map(nombre => {
+      const k = nombre.toLowerCase().trim();
+      const cortesB = cortesSemana.filter(c => (c.barberoNombre || '').toLowerCase().trim() === k);
+      const totB = cortesB.reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
+      const gananciaB = Math.round(totB * 0.5);
+      return {
+        nombre,
+        cortes: cortesB.length,
+        totalFacturado: totB,
+        gananciaBarbero: gananciaB,
+        gananciaLocal: totB - gananciaB
+      };
+    });
+
+    cierre = {
+      semanaLabel: selectedOpt.textContent.trim(),
+      totalGeneral,
+      totalEfectivo,
+      totalMercadoPago: totalMP,
+      totalCortes: cortesSemana.length,
+      totalCeroYMedio: desglose.reduce((acc, b) => acc + b.gananciaLocal, 0),
+      totalBarberos: desglose.reduce((acc, b) => acc + b.gananciaBarbero, 0),
+      desgloseBarberos: desglose
+    };
+  }
+
+  let msg = `💈 *BARBERÍA CERO Y MEDIO* 💈\n`;
+  msg += `📋 *CIERRE SEMANAL (Lunes a Sábado)*\n`;
+  msg += `📅 *Período:* ${cierre.semanaLabel}\n\n`;
+  msg += `💰 *Total Facturado:* ${formatCurrency(cierre.totalGeneral)}\n`;
+  msg += `💵 *Efectivo:* ${formatCurrency(cierre.totalEfectivo)}\n`;
+  msg += `📱 *Mercado Pago:* ${formatCurrency(cierre.totalMercadoPago)}\n`;
+  msg += `✂️ *Cortes Totales:* ${cierre.totalCortes}\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `💈 *NETO CERO Y MEDIO (50%):* ${formatCurrency(cierre.totalCeroYMedio)}\n`;
+  msg += `👥 *A PAGAR BARBEROS (50%):* ${formatCurrency(cierre.totalBarberos)}\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  msg += `✂️ *LIQUIDACIÓN POR BARBERO:*\n`;
+
+  const activos = (cierre.desgloseBarberos || []).filter(b => b.cortes > 0 || b.totalFacturado > 0);
+  if (activos.length === 0) {
+    msg += `(Sin cortes en el período)\n`;
+  } else {
+    activos.forEach(b => {
+      msg += `• *${b.nombre}:* ${b.cortes} cortes\n`;
+      msg += `   - Facturado: ${formatCurrency(b.totalFacturado)}\n`;
+      msg += `   - Sueldo Barbero (50%): ${formatCurrency(b.gananciaBarbero)}\n`;
+      msg += `   - Ganancia Barbería (50%): ${formatCurrency(b.gananciaLocal || b.gananciaBarbero)}\n\n`;
+    });
+  }
+
+  msg += `_Sistema Barbería Cero y Medio_`;
+
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// Compartir liquidación individual de un barbero por WhatsApp
+function compartirWhatsAppLiquidacionBarbero(barberoNombre) {
+  const selectSemana = document.getElementById('selectSemanaLaboral');
+  if (!selectSemana) return;
+  const selectedOpt = selectSemana.options[selectSemana.selectedIndex];
+  if (!selectedOpt) return;
+
+  const fechaInicio = selectedOpt.dataset.inicio || selectedOpt.getAttribute('data-inicio');
+  const fechaFin = selectedOpt.dataset.fin || selectedOpt.getAttribute('data-fin');
+
+  const todosCortes = StorageService.getAllCortes();
+  const k = barberoNombre.toLowerCase().trim();
+  const cortesB = todosCortes.filter(c => {
+    const matchFecha = c.fecha >= fechaInicio && c.fecha <= fechaFin;
+    const matchBarbero = (c.barberoNombre || '').toLowerCase().trim() === k;
+    return matchFecha && matchBarbero;
+  });
+
+  let totB = 0;
+  let efB = 0;
+  let mpB = 0;
+  cortesB.forEach(c => {
+    const m = Number(c.monto) || 0;
+    totB += m;
+    if (c.metodoPago === 'EFECTIVO') efB += m;
+    else mpB += m;
+  });
+
+  const sueldo50 = Math.round(totB * 0.5);
+  const aporteLocal = totB - sueldo50;
+
+  let msg = `💈 *BARBERÍA CERO Y MEDIO* 💈\n`;
+  msg += `📋 *LIQUIDACIÓN SEMANAL DE CORTE*\n`;
+  msg += `👤 *Barbero:* ${barberoNombre}\n`;
+  msg += `📅 *Período:* ${selectedOpt.textContent.trim()}\n\n`;
+  msg += `✂️ *Cortes Realizados:* ${cortesB.length}\n`;
+  msg += `💰 *Total Facturado:* ${formatCurrency(totB)}\n`;
+  msg += `   • Efectivo: ${formatCurrency(efB)}\n`;
+  msg += `   • Mercado Pago: ${formatCurrency(mpB)}\n\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `💵 *SUELDO A COBRAR (50%):* ${formatCurrency(sueldo50)}\n`;
+  msg += `💈 *Aporte Barbería Cero y Medio (50%):* ${formatCurrency(aporteLocal)}\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  msg += `¡Excelente trabajo esta semana!\n`;
+  msg += `_Sistema Barbería Cero y Medio_`;
+
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// Eliminar un cierre semanal guardado
+async function eliminarCierreSemanal(id) {
+  const confirmacion = confirm('¿Deseas eliminar este registro de Cierre Semanal archivado?');
+  if (!confirmacion) return;
+
+  await StorageService.deleteCierreSemanal(id);
+  showToast('Cierre semanal eliminado', 'info');
+  renderTabSemanal();
 }
 
 // ============================================================
@@ -2712,6 +3293,7 @@ function renderUserHeader(session) {
 function applyRolePermissions(role) {
   const btnHistorial = document.getElementById('btn-tab-historial');
   const btnConfig = document.getElementById('btn-tab-config');
+  const btnSemanal = document.getElementById('btn-tab-semanal');
   const btnCierreTab1 = document.getElementById('btnCierreCajaTab1');
   const btnCierreTabDiario = document.getElementById('btnCierreCajaTabDiario');
 
@@ -2722,18 +3304,20 @@ function applyRolePermissions(role) {
   if (role === 'barbero') {
     // Laureano (Barbero):
     // Permitido: Cargar Cortes, Abrir y Cerrar Caja, Clientes & Membresías VIP (alta, cobro, baja), Barberos
-    // Ocultar únicamente Configuración avanzada (cambio de precios/reinicio) e Historial previo
+    // Ocultar Configuración avanzada, Historial previo y Cierre Semanal (exclusivo dueños)
     if (btnHistorial) btnHistorial.classList.add('hidden');
     if (btnConfig) btnConfig.classList.add('hidden');
+    if (btnSemanal) btnSemanal.classList.add('hidden');
 
     // Si estaba parado en pestañas protegidas, moverlo a Cargar Corte
-    if (appState.currentTab === 'tab-config' || appState.currentTab === 'tab-historial') {
+    if (appState.currentTab === 'tab-config' || appState.currentTab === 'tab-historial' || appState.currentTab === 'tab-semanal') {
       switchTab('tab-registro');
     }
   } else {
-    // José (Dueño): Acceso total y completo
+    // Dueños (José y Diego): Acceso total y completo
     if (btnHistorial) btnHistorial.classList.remove('hidden');
     if (btnConfig) btnConfig.classList.remove('hidden');
+    if (btnSemanal) btnSemanal.classList.remove('hidden');
   }
 
   if (window.lucide) {

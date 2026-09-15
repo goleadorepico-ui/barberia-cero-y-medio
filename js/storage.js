@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   CLIENTES: 'barbercontrol_clientes',
   TURNOS: 'barbercontrol_turnos',
   ADEUDADOS: 'barbercontrol_adeudados',
+  CIERRES_SEMANALES: 'barbercontrol_cierres_semanales',
   CONFIG: 'barbercontrol_config',
   SESSION: 'barbercontrol_session'
 };
@@ -221,6 +222,52 @@ const StorageService = {
       cierres: all
     });
     return true;
+  },
+
+  // ============================================================
+  // CIERRES SEMANALES (LUNES A SÁBADO)
+  // ============================================================
+  getAllCierresSemanales() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CIERRES_SEMANALES);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      console.error('Error al leer cierres semanales:', e);
+      return [];
+    }
+  },
+
+  saveAllCierresSemanales(cierres, skipPush = false) {
+    localStorage.setItem(STORAGE_KEYS.CIERRES_SEMANALES, JSON.stringify(cierres));
+    if (!skipPush) this.pushToServer({ action: 'save_cierres_semanales', cierres_semanales: cierres });
+  },
+
+  async guardarCierreSemanal(cierreData) {
+    const list = this.getAllCierresSemanales();
+    const idx = list.findIndex(c => c.id === cierreData.id || (c.semanaInicio === cierreData.semanaInicio && c.semanaFin === cierreData.semanaFin));
+    if (idx >= 0) {
+      list[idx] = cierreData;
+    } else {
+      list.unshift(cierreData);
+    }
+    this.saveAllCierresSemanales(list, true);
+    await this.pushToServer({
+      action: 'guardar_cierre_semanal',
+      cierre_semanal: cierreData,
+      cierres_semanales: list
+    });
+    return cierreData;
+  },
+
+  async deleteCierreSemanal(id) {
+    const list = this.getAllCierresSemanales().filter(c => c.id !== id);
+    this.saveAllCierresSemanales(list, true);
+    await this.pushToServer({
+      action: 'delete_cierre_semanal',
+      cierreSemanalId: id,
+      cierres_semanales: list
+    });
+    return list;
   },
 
   // CLIENTES Y MEMBRESÍAS
@@ -588,7 +635,8 @@ const StorageService = {
       cierres: this.getAllCierres(),
       clientes: this.getClientes(),
       turnos: this.getTurnos(),
-      adeudados: this.getAdeudados()
+      adeudados: this.getAdeudados(),
+      cierres_semanales: this.getAllCierresSemanales()
     };
     return JSON.stringify(backup, null, 2);
   },
@@ -603,6 +651,7 @@ const StorageService = {
       if (data.clientes) this.saveClientes(data.clientes, true);
       if (data.turnos) this.saveTurnos(data.turnos, true);
       if (data.adeudados) this.saveAdeudados(data.adeudados, true);
+      if (data.cierres_semanales) this.saveAllCierresSemanales(data.cierres_semanales, true);
       await this.pushToServer({
         action: 'import_backup',
         barberos: data.barberos || [],
@@ -611,7 +660,8 @@ const StorageService = {
         cierres: data.cierres || [],
         clientes: data.clientes || [],
         turnos: data.turnos || [],
-        cortes_adeudados: data.adeudados || []
+        cortes_adeudados: data.adeudados || [],
+        cierres_semanales: data.cierres_semanales || []
       });
       return true;
     } catch (e) {
@@ -628,6 +678,7 @@ const StorageService = {
     localStorage.removeItem(STORAGE_KEYS.CLIENTES);
     localStorage.removeItem(STORAGE_KEYS.TURNOS);
     localStorage.removeItem(STORAGE_KEYS.ADEUDADOS);
+    localStorage.removeItem(STORAGE_KEYS.CIERRES_SEMANALES);
     await this.pushToServer({ reset: true });
   },
 
@@ -685,6 +736,14 @@ const StorageService = {
           const remoteCierres = Array.isArray(remoteData.cierres) ? remoteData.cierres : [];
           if (JSON.stringify(localCierres) !== JSON.stringify(remoteCierres)) {
             this.saveAllCierres(remoteCierres, true);
+            hasRemoteChanges = true;
+          }
+
+          // Cierres Semanales (El servidor es la fuente central)
+          const localCierresSemanales = this.getAllCierresSemanales();
+          const remoteCierresSemanales = Array.isArray(remoteData.cierres_semanales) ? remoteData.cierres_semanales : [];
+          if (JSON.stringify(localCierresSemanales) !== JSON.stringify(remoteCierresSemanales)) {
+            this.saveAllCierresSemanales(remoteCierresSemanales, true);
             hasRemoteChanges = true;
           }
 
