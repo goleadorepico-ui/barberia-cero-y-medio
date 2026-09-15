@@ -2408,6 +2408,25 @@ function renderTabAdeudados() {
   }
 
   container.innerHTML = filtrados.map(a => {
+    // Antigüedad de la deuda para dar tranquilidad de que se conserva día tras día
+    let antiguedadLabel = 'Anotado hoy';
+    let antiguedadColor = 'text-amber-400 bg-amber-500/15 border-amber-500/30';
+    if (a.fecha) {
+      const hoy = getTodayISO();
+      if (a.fecha !== hoy) {
+        const d1 = new Date(a.fecha + 'T00:00:00');
+        const d2 = new Date(hoy + 'T00:00:00');
+        const diffDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          antiguedadLabel = 'Anotado ayer';
+          antiguedadColor = 'text-orange-400 bg-orange-500/15 border-orange-500/30';
+        } else if (diffDays > 1) {
+          antiguedadLabel = `Pendiente hace ${diffDays} días`;
+          antiguedadColor = 'text-amber-300 bg-amber-500/20 border-amber-500/40';
+        }
+      }
+    }
+
     return `
       <div class="bg-brand-card rounded-2xl border border-amber-500/30 p-5 shadow-xl flex flex-col justify-between space-y-4 hover:border-amber-500/50 transition-all">
         <!-- Encabezado de la Tarjeta -->
@@ -2433,16 +2452,21 @@ function renderTabAdeudados() {
             </button>
           </div>
 
-          <!-- Monto y Estado -->
+          <!-- Monto y Estado con Antigüedad -->
           <div class="mt-4 p-3.5 bg-brand-dark rounded-xl border border-brand-border flex items-center justify-between">
             <div>
               <span class="text-[11px] text-gray-400 uppercase tracking-wider block">Deuda Pendiente</span>
               <span class="text-xl font-black text-amber-400">${formatCurrency(a.monto)}</span>
             </div>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-              <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-              Pendiente
-            </span>
+            <div class="flex flex-col items-end gap-1">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                Pendiente
+              </span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${antiguedadColor}">
+                <i data-lucide="clock" class="w-3 h-3"></i> ${antiguedadLabel}
+              </span>
+            </div>
           </div>
 
           <!-- Detalle de Fecha, Hora y Notas -->

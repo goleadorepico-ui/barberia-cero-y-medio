@@ -17,6 +17,7 @@ import subprocess
 import time
 import re
 import datetime
+import functools
 
 PORT = int(os.environ.get('PORT', 3000))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,6 +41,16 @@ SERVER_INFO = {
     'port': PORT
 }
 
+DATA_LOCK = threading.Lock()
+
+def with_data_lock(fn):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with DATA_LOCK:
+            return fn(*args, **kwargs)
+    return wrapper
+
+@with_data_lock
 def process_data_update(incoming_data):
     """
     Central data processor for cortes, clientes, cierres, and turnos.
@@ -221,7 +232,11 @@ def process_data_update(incoming_data):
             final_data['cortes_adeudados'] = [a for a in existing_adeudados if str(a.get('id')) != str(adeudado_id)]
         elif action == 'save_adeudados':
             incoming_adeudados = incoming_data.get('cortes_adeudados', [])
-            final_data['cortes_adeudados'] = [a for a in incoming_adeudados if isinstance(a, dict) and str(a.get('id')) not in deleted_adeudado_ids]
+            a_map = {str(a['id']): a for a in existing_adeudados if isinstance(a, dict) and 'id' in a}
+            for a in incoming_adeudados:
+                if isinstance(a, dict) and 'id' in a and str(a['id']) not in deleted_adeudado_ids:
+                    a_map[str(a['id'])] = a
+            final_data['cortes_adeudados'] = sorted(list(a_map.values()), key=lambda x: x.get('timestamp', 0), reverse=True)
         else:
             final_data['cortes_adeudados'] = existing_adeudados
         final_data['deleted_adeudado_ids'] = list(deleted_adeudado_ids)
@@ -440,6 +455,7 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
             pass
 
 
+@with_data_lock
 def ejecutar_autocierre_dia(fecha_iso):
     """Genera el cierre de caja de una fecha si tiene cortes y no esta cerrada."""
     if not os.path.exists(DATA_FILE):

@@ -755,12 +755,37 @@ const StorageService = {
             hasRemoteChanges = true;
           }
 
-          // Cortes Adeudados (El servidor es la fuente central autoritativa)
+          // Cortes Adeudados: Fusión inteligente protegida contra borrado accidental
           const localAdeudados = this.getAdeudados();
           const remoteAdeudados = Array.isArray(remoteData.cortes_adeudados) ? remoteData.cortes_adeudados : [];
-          if (JSON.stringify(localAdeudados) !== JSON.stringify(remoteAdeudados)) {
-            this.saveAdeudados(remoteAdeudados, true);
+          const deletedAdeudadoIds = new Set((remoteData.deleted_adeudado_ids || []).map(String));
+
+          // 1. Filtrar deudas que ya fueron cobradas o borradas en el servidor
+          const localValidos = localAdeudados.filter(a => a && a.id && !deletedAdeudadoIds.has(String(a.id)));
+          const remoteValidos = remoteAdeudados.filter(a => a && a.id && !deletedAdeudadoIds.has(String(a.id)));
+
+          // 2. Mapa unificado por ID (los remotos tienen prioridad de actualización, pero lo local pendiente jamás se borra)
+          const adeudadosMap = new Map();
+          remoteValidos.forEach(a => adeudadosMap.set(String(a.id), a));
+
+          let hayLocalesNoSubidos = false;
+          localValidos.forEach(a => {
+            if (!adeudadosMap.has(String(a.id))) {
+              adeudadosMap.set(String(a.id), a);
+              hayLocalesNoSubidos = true;
+            }
+          });
+
+          const mergedAdeudados = Array.from(adeudadosMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+          if (JSON.stringify(localAdeudados) !== JSON.stringify(mergedAdeudados)) {
+            this.saveAdeudados(mergedAdeudados, true);
             hasRemoteChanges = true;
+          }
+
+          // Si el cliente tenía deudas locales que el servidor aún no tiene en su archivo, respaldarlas de inmediato
+          if (hayLocalesNoSubidos) {
+            this.pushToServer({ action: 'save_adeudados', cortes_adeudados: mergedAdeudados });
           }
 
           // Informacion del servidor y tunel celular (Cloudflare & WiFi IP)
