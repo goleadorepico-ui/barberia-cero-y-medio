@@ -51,9 +51,36 @@ def with_data_lock(fn):
             return fn(*args, **kwargs)
     return wrapper
 
+try:
+    import turso_client
+    HAS_TURSO = True
+except ImportError:
+    HAS_TURSO = False
+
 @with_data_lock
 def read_data_file():
-    """Lectura segura y tolerante a fallos de datos_barberia.json con reintentos y respaldo automatico."""
+    """
+    Lectura segura y tolerante a fallos.
+    Si Turso Cloud esta configurado (en Render 24/7), lee desde la nube y mantiene cache local.
+    Si no, lee el archivo local datos_barberia.json con reintentos y respaldo automatico.
+    """
+    if HAS_TURSO and turso_client.is_turso_configured():
+        try:
+            cloud_data = turso_client.TursoClient().load_data()
+            if isinstance(cloud_data, dict) and cloud_data:
+                # Mantener sincronizado el archivo local como respaldo/cache
+                try:
+                    tmp_file = DATA_FILE + '.tmp'
+                    with open(tmp_file, 'w', encoding='utf-8') as f:
+                        json.dump(cloud_data, f, ensure_ascii=False, indent=2)
+                    os.replace(tmp_file, DATA_FILE)
+                except Exception:
+                    pass
+                return cloud_data
+        except Exception as e:
+            print(f"[TURSO SYNC WARNING] No se pudo leer de Turso Cloud, usando local: {e}")
+
+    # Modo local / fallback
     if not os.path.exists(DATA_FILE):
         return {}
     for _ in range(3):
@@ -74,18 +101,32 @@ def read_data_file():
     return {}
 
 def safe_write_data(data):
-    """Escritura atomica con archivo temporal y respaldo automatico para evitar perdidas o archivos corruptos."""
-    tmp_file = DATA_FILE + '.tmp'
-    bak_file = DATA_FILE + '.bak'
-    with open(tmp_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    """
+    Escritura atomica con archivo temporal y respaldo automatico.
+    Si Turso Cloud esta configurado, persiste de inmediato en la nube para garantizar servicio 24/7.
+    """
+    # 1. Escritura atomica local
     try:
-        if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
-            import shutil
-            shutil.copyfile(DATA_FILE, bak_file)
-    except Exception:
-        pass
-    os.replace(tmp_file, DATA_FILE)
+        tmp_file = DATA_FILE + '.tmp'
+        bak_file = DATA_FILE + '.bak'
+        with open(tmp_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        try:
+            if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+                import shutil
+                shutil.copyfile(DATA_FILE, bak_file)
+        except Exception:
+            pass
+        os.replace(tmp_file, DATA_FILE)
+    except Exception as e:
+        print(f"[LOCAL WRITE ERROR] {e}")
+
+    # 2. Persistencia en la nube (Turso Cloud 24/7)
+    if HAS_TURSO and turso_client.is_turso_configured():
+        try:
+            turso_client.TursoClient().save_data(data)
+        except Exception as e:
+            print(f"[TURSO WRITE WARNING] No se pudo sincronizar en Turso Cloud: {e}")
 
 @with_data_lock
 def process_data_update(incoming_data):
@@ -565,6 +606,13 @@ def ejecutar_autocierre_dia(fecha_iso):
 
         safe_write_data(data)
 
+        # Snapshot inmutable de respaldo en Turso Cloud si esta configurado
+        if HAS_TURSO and turso_client.is_turso_configured():
+            try:
+                turso_client.TursoClient().create_snapshot(data, motivo=f"autocierre_{fecha_iso}")
+            except Exception:
+                pass
+
         print(f"[AUTO-CIERRE] Caja del dia {fecha_iso} cerrada automaticamente a las 23:59 hs (Total: ${total}).")
     except Exception as e:
         print(f"[AUTO-CIERRE ERROR] {e}")
@@ -598,6 +646,18 @@ def auto_cash_register_daemon():
             pass
 
         time.sleep(20)
+
+
+# Iniciar demonio de autocierre (funciona tanto en PC local como en Render 24/7 con Gunicorn)
+_DAEMON_STARTED = False
+def ensure_daemons_started():
+    global _DAEMON_STARTED
+    if not _DAEMON_STARTED:
+        _DAEMON_STARTED = True
+        t_auto = threading.Thread(target=auto_cash_register_daemon, daemon=True)
+        t_auto.start()
+
+ensure_daemons_started()
 
 
 def run_http_server():
@@ -649,10 +709,7 @@ if __name__ == '__main__':
     print('             CERO Y MEDIO - BARBERIA MODERNA                          ')
     print('======================================================================')
 
-    # Iniciar hilo de autocierre de caja a las 23:59 y reapertura a las 00:01
-    import threading
-    t_auto = threading.Thread(target=auto_cash_register_daemon, daemon=True)
-    t_auto.start()
+
 
     if HAS_FLASK and os.environ.get('USE_FLASK', '').lower() in ('1', 'true', 'yes'):
         print(f'Iniciando con Flask en el puerto {PORT}...')
