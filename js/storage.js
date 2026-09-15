@@ -37,6 +37,40 @@ function _safeTodayISO() {
 }
 
 const StorageService = {
+  // CONTROL DE ELEMENTOS ELIMINADOS LOCALMENTE (Tombstones)
+  _addLocalTombstone(entityType, id) {
+    if (!id) return;
+    try {
+      const key = `barbercontrol_deleted_${entityType}_ids`;
+      const current = JSON.parse(localStorage.getItem(key) || '[]');
+      const strId = String(id);
+      if (!current.includes(strId)) {
+        current.push(strId);
+        localStorage.setItem(key, JSON.stringify(current));
+      }
+    } catch (e) {}
+  },
+
+  _getLocalTombstones(entityType) {
+    try {
+      const key = `barbercontrol_deleted_${entityType}_ids`;
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch (e) {
+      return [];
+    }
+  },
+
+  _removeLocalTombstone(entityType, id) {
+    if (!id) return;
+    try {
+      const key = `barbercontrol_deleted_${entityType}_ids`;
+      const current = JSON.parse(localStorage.getItem(key) || '[]');
+      const strId = String(id);
+      const filtered = current.filter(x => String(x) !== strId);
+      localStorage.setItem(key, JSON.stringify(filtered));
+    } catch (e) {}
+  },
+
   // SESIÓN DE USUARIO
   getSession() {
     try {
@@ -160,6 +194,7 @@ const StorageService = {
       metodoPago: corte.metodoPago, // 'EFECTIVO' | 'MERCADOPAGO' | 'TRANSFERENCIA'
       timestamp: Date.now()
     };
+    this._removeLocalTombstone('corte', nuevoCorte.id);
     all.unshift(nuevoCorte); // Más reciente primero
     this.saveAllCortes(all, true);
     await this.pushToServer({ action: 'nuevo_corte', corte: nuevoCorte, cortes: all });
@@ -167,9 +202,10 @@ const StorageService = {
   },
 
   async deleteCorte(id) {
+    this._addLocalTombstone('corte', id);
     const all = this.getAllCortes().filter(c => c.id !== id);
     localStorage.setItem(STORAGE_KEYS.CORTES, JSON.stringify(all));
-    await this.pushToServer({ action: 'delete_corte', corteId: id, cortes: all });
+    await this.pushToServer({ action: 'delete_corte', corteId: id, cortes: all, deleted_corte_ids: this._getLocalTombstones('corte') });
     return all;
   },
 
@@ -316,15 +352,17 @@ const StorageService = {
       };
       list.unshift(clienteGuardado);
     }
+    if (clienteGuardado && clienteGuardado.id) this._removeLocalTombstone('cliente', clienteGuardado.id);
     this.saveClientes(list, true);
     await this.pushToServer({ action: 'upsert_cliente', cliente: clienteGuardado, clientes: list });
     return clienteGuardado;
   },
 
   async deleteCliente(id) {
+    this._addLocalTombstone('cliente', id);
     const list = this.getClientes().filter(c => c.id !== id);
     localStorage.setItem(STORAGE_KEYS.CLIENTES, JSON.stringify(list));
-    await this.pushToServer({ action: 'delete_cliente', clienteId: id, clientes: list });
+    await this.pushToServer({ action: 'delete_cliente', clienteId: id, clientes: list, deleted_cliente_ids: this._getLocalTombstones('cliente') });
     return list;
   },
 
@@ -471,6 +509,7 @@ const StorageService = {
       timestamp: Date.now()
     };
 
+    this._removeLocalTombstone('turno', nuevoTurno.id);
     turnos.unshift(nuevoTurno);
     turnos.sort((a, b) => (a.fecha + ' ' + a.hora).localeCompare(b.fecha + ' ' + b.hora));
     this.saveTurnos(turnos, true);
@@ -517,12 +556,14 @@ const StorageService = {
   },
 
   async deleteTurno(turnoId) {
+    this._addLocalTombstone('turno', turnoId);
     const turnos = this.getTurnos().filter(t => t.id !== turnoId);
     this.saveTurnos(turnos, true);
     await this.pushToServer({
       action: 'delete_turno',
       turnoId: turnoId,
-      turnos: turnos
+      turnos: turnos,
+      deleted_turno_ids: this._getLocalTombstones('turno')
     });
     return true;
   },
@@ -576,6 +617,7 @@ const StorageService = {
       notas: (data.notas || '').trim(),
       timestamp: Date.now()
     };
+    this._removeLocalTombstone('adeudado', nuevoAdeudado.id);
     list.unshift(nuevoAdeudado);
     this.saveAdeudados(list, true);
     await this.pushToServer({
@@ -587,12 +629,14 @@ const StorageService = {
   },
 
   async deleteAdeudado(id) {
+    this._addLocalTombstone('adeudado', id);
     const list = this.getAdeudados().filter(a => a.id !== id);
     this.saveAdeudados(list, true);
     await this.pushToServer({
       action: 'delete_adeudado',
       adeudadoId: id,
-      cortes_adeudados: list
+      cortes_adeudados: list,
+      deleted_adeudado_ids: this._getLocalTombstones('adeudado')
     });
     return list;
   },
@@ -679,6 +723,10 @@ const StorageService = {
     localStorage.removeItem(STORAGE_KEYS.TURNOS);
     localStorage.removeItem(STORAGE_KEYS.ADEUDADOS);
     localStorage.removeItem(STORAGE_KEYS.CIERRES_SEMANALES);
+    localStorage.removeItem('barbercontrol_deleted_corte_ids');
+    localStorage.removeItem('barbercontrol_deleted_cliente_ids');
+    localStorage.removeItem('barbercontrol_deleted_turno_ids');
+    localStorage.removeItem('barbercontrol_deleted_adeudado_ids');
     await this.pushToServer({ reset: true });
   },
 
@@ -715,52 +763,155 @@ const StorageService = {
             }
           }
 
-          // Cortes (El servidor es la fuente central de verdad autoritativa)
+          // Cortes: Fusión inteligente bidireccional protegida contra pérdidas
           const localCortes = this.getAllCortes();
           const remoteCortes = Array.isArray(remoteData.cortes) ? remoteData.cortes : [];
-          if (JSON.stringify(localCortes) !== JSON.stringify(remoteCortes)) {
-            this.saveAllCortes(remoteCortes, true);
+          const deletedCorteIds = new Set([
+            ...(remoteData.deleted_corte_ids || []).map(String),
+            ...this._getLocalTombstones('corte').map(String)
+          ]);
+
+          const localCortesValidos = localCortes.filter(c => c && c.id && !deletedCorteIds.has(String(c.id)));
+          const remoteCortesValidos = remoteCortes.filter(c => c && c.id && !deletedCorteIds.has(String(c.id)));
+
+          const cortesMap = new Map();
+          remoteCortesValidos.forEach(c => cortesMap.set(String(c.id), c));
+
+          let hayCortesLocalesNoSubidos = false;
+          localCortesValidos.forEach(c => {
+            if (!cortesMap.has(String(c.id))) {
+              cortesMap.set(String(c.id), c);
+              hayCortesLocalesNoSubidos = true;
+            }
+          });
+
+          const mergedCortes = Array.from(cortesMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+          if (JSON.stringify(localCortes) !== JSON.stringify(mergedCortes)) {
+            this.saveAllCortes(mergedCortes, true);
             hasRemoteChanges = true;
           }
 
-          // Clientes (El servidor es la fuente central de verdad: evita resucitar clientes borrados)
+          if (hayCortesLocalesNoSubidos) {
+            this.pushToServer({
+              action: 'save_cortes',
+              cortes: mergedCortes,
+              deleted_corte_ids: Array.from(deletedCorteIds)
+            });
+          }
+
+          // Clientes: Fusión inteligente protegida contra borrado accidental
           const localClientes = this.getClientes();
           const remoteClientes = Array.isArray(remoteData.clientes) ? remoteData.clientes : [];
-          if (JSON.stringify(localClientes) !== JSON.stringify(remoteClientes)) {
-            this.saveClientes(remoteClientes, true);
+          const deletedClienteIds = new Set([
+            ...(remoteData.deleted_cliente_ids || []).map(String),
+            ...this._getLocalTombstones('cliente').map(String)
+          ]);
+
+          const localClientesValidos = localClientes.filter(c => c && c.id && !deletedClienteIds.has(String(c.id)));
+          const remoteClientesValidos = remoteClientes.filter(c => c && c.id && !deletedClienteIds.has(String(c.id)));
+
+          const clientesMap = new Map();
+          remoteClientesValidos.forEach(c => clientesMap.set(String(c.id), c));
+
+          let hayClientesLocalesNoSubidos = false;
+          localClientesValidos.forEach(c => {
+            if (!clientesMap.has(String(c.id))) {
+              clientesMap.set(String(c.id), c);
+              hayClientesLocalesNoSubidos = true;
+            }
+          });
+
+          const mergedClientes = Array.from(clientesMap.values());
+
+          if (JSON.stringify(localClientes) !== JSON.stringify(mergedClientes)) {
+            this.saveClientes(mergedClientes, true);
             hasRemoteChanges = true;
           }
 
-          // Cierres (El servidor es la fuente central de verdad: evita resucitar cierres reabiertos)
+          if (hayClientesLocalesNoSubidos) {
+            this.pushToServer({
+              action: 'save_clientes',
+              clientes: mergedClientes,
+              deleted_cliente_ids: Array.from(deletedClienteIds)
+            });
+          }
+
+          // Cierres de caja (Diarios)
           const localCierres = this.getAllCierres();
           const remoteCierres = Array.isArray(remoteData.cierres) ? remoteData.cierres : [];
-          if (JSON.stringify(localCierres) !== JSON.stringify(remoteCierres)) {
+          if (remoteData.cierres && JSON.stringify(localCierres) !== JSON.stringify(remoteCierres)) {
             this.saveAllCierres(remoteCierres, true);
             hasRemoteChanges = true;
           }
 
-          // Cierres Semanales (El servidor es la fuente central)
+          // Cierres Semanales: Fusión inteligente
           const localCierresSemanales = this.getAllCierresSemanales();
           const remoteCierresSemanales = Array.isArray(remoteData.cierres_semanales) ? remoteData.cierres_semanales : [];
-          if (JSON.stringify(localCierresSemanales) !== JSON.stringify(remoteCierresSemanales)) {
-            this.saveAllCierresSemanales(remoteCierresSemanales, true);
+          const csMap = new Map();
+          remoteCierresSemanales.forEach(cs => cs && cs.id && csMap.set(String(cs.id), cs));
+          let hayCsLocalesNoSubidos = false;
+          localCierresSemanales.forEach(cs => {
+            if (cs && cs.id && !csMap.has(String(cs.id))) {
+              csMap.set(String(cs.id), cs);
+              hayCsLocalesNoSubidos = true;
+            }
+          });
+          const mergedCs = Array.from(csMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          if (JSON.stringify(localCierresSemanales) !== JSON.stringify(mergedCs)) {
+            this.saveAllCierresSemanales(mergedCs, true);
+            hasRemoteChanges = true;
+          }
+          if (hayCsLocalesNoSubidos) {
+            this.pushToServer({ action: 'save_cierres_semanales', cierres_semanales: mergedCs });
+          }
+
+          // Turnos: Fusión inteligente protegida contra borrado accidental
+          const localTurnos = this.getTurnos();
+          const remoteTurnos = Array.isArray(remoteData.turnos) ? remoteData.turnos : [];
+          const deletedTurnoIds = new Set([
+            ...(remoteData.deleted_turno_ids || []).map(String),
+            ...this._getLocalTombstones('turno').map(String)
+          ]);
+
+          const localTurnosValidos = localTurnos.filter(t => t && t.id && !deletedTurnoIds.has(String(t.id)));
+          const remoteTurnosValidos = remoteTurnos.filter(t => t && t.id && !deletedTurnoIds.has(String(t.id)));
+
+          const turnosMap = new Map();
+          remoteTurnosValidos.forEach(t => turnosMap.set(String(t.id), t));
+
+          let hayTurnosLocalesNoSubidos = false;
+          localTurnosValidos.forEach(t => {
+            if (!turnosMap.has(String(t.id))) {
+              turnosMap.set(String(t.id), t);
+              hayTurnosLocalesNoSubidos = true;
+            }
+          });
+
+          const mergedTurnos = Array.from(turnosMap.values());
+
+          if (JSON.stringify(localTurnos) !== JSON.stringify(mergedTurnos)) {
+            this.saveTurnos(mergedTurnos, true);
             hasRemoteChanges = true;
           }
 
-          // Turnos (El servidor es la fuente central de verdad autoritativa)
-          const localTurnos = this.getTurnos();
-          const remoteTurnos = Array.isArray(remoteData.turnos) ? remoteData.turnos : [];
-          if (JSON.stringify(localTurnos) !== JSON.stringify(remoteTurnos)) {
-            this.saveTurnos(remoteTurnos, true);
-            hasRemoteChanges = true;
+          if (hayTurnosLocalesNoSubidos) {
+            this.pushToServer({
+              action: 'save_turnos',
+              turnos: mergedTurnos,
+              deleted_turno_ids: Array.from(deletedTurnoIds)
+            });
           }
 
           // Cortes Adeudados: Fusión inteligente protegida contra borrado accidental
           const localAdeudados = this.getAdeudados();
           const remoteAdeudados = Array.isArray(remoteData.cortes_adeudados) ? remoteData.cortes_adeudados : [];
-          const deletedAdeudadoIds = new Set((remoteData.deleted_adeudado_ids || []).map(String));
+          const deletedAdeudadoIds = new Set([
+            ...(remoteData.deleted_adeudado_ids || []).map(String),
+            ...this._getLocalTombstones('adeudado').map(String)
+          ]);
 
-          // 1. Filtrar deudas que ya fueron cobradas o borradas en el servidor
+          // 1. Filtrar deudas que ya fueron cobradas o borradas en el servidor o localmente
           const localValidos = localAdeudados.filter(a => a && a.id && !deletedAdeudadoIds.has(String(a.id)));
           const remoteValidos = remoteAdeudados.filter(a => a && a.id && !deletedAdeudadoIds.has(String(a.id)));
 
@@ -785,7 +936,11 @@ const StorageService = {
 
           // Si el cliente tenía deudas locales que el servidor aún no tiene en su archivo, respaldarlas de inmediato
           if (hayLocalesNoSubidos) {
-            this.pushToServer({ action: 'save_adeudados', cortes_adeudados: mergedAdeudados });
+            this.pushToServer({
+              action: 'save_adeudados',
+              cortes_adeudados: mergedAdeudados,
+              deleted_adeudado_ids: Array.from(deletedAdeudadoIds)
+            });
           }
 
           // Informacion del servidor y tunel celular (Cloudflare & WiFi IP)

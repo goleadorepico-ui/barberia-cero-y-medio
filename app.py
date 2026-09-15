@@ -27,6 +27,7 @@ CLOUDFLARED = os.path.join(BASE_DIR, 'cloudflared.exe')
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5)
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
         s.close()
@@ -41,7 +42,7 @@ SERVER_INFO = {
     'port': PORT
 }
 
-DATA_LOCK = threading.Lock()
+DATA_LOCK = threading.RLock()
 
 def with_data_lock(fn):
     @functools.wraps(fn)
@@ -51,18 +52,48 @@ def with_data_lock(fn):
     return wrapper
 
 @with_data_lock
+def read_data_file():
+    """Lectura segura y tolerante a fallos de datos_barberia.json con reintentos y respaldo automatico."""
+    if not os.path.exists(DATA_FILE):
+        return {}
+    for _ in range(3):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content:
+                    return json.loads(content)
+        except Exception:
+            time.sleep(0.05)
+    bak_file = DATA_FILE + '.bak'
+    if os.path.exists(bak_file):
+        try:
+            with open(bak_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def safe_write_data(data):
+    """Escritura atomica con archivo temporal y respaldo automatico para evitar perdidas o archivos corruptos."""
+    tmp_file = DATA_FILE + '.tmp'
+    bak_file = DATA_FILE + '.bak'
+    with open(tmp_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+            import shutil
+            shutil.copyfile(DATA_FILE, bak_file)
+    except Exception:
+        pass
+    os.replace(tmp_file, DATA_FILE)
+
+@with_data_lock
 def process_data_update(incoming_data):
     """
     Central data processor for cortes, clientes, cierres, and turnos.
-    Merges records safely with permanent tombstones to prevent resurrection.
+    Merges records safely with permanent tombstones to prevent accidental deletion or resurrection.
     """
-    existing_data = {}
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
-        except Exception:
-            existing_data = {}
+    existing_data = read_data_file()
 
     if incoming_data.get('reset') is True:
         final_data = {
@@ -87,6 +118,16 @@ def process_data_update(incoming_data):
         deleted_corte_ids = set(str(cid) for cid in existing_data.get('deleted_corte_ids', []))
         deleted_turno_ids = set(str(tid) for tid in existing_data.get('deleted_turno_ids', []))
         deleted_adeudado_ids = set(str(aid) for aid in existing_data.get('deleted_adeudado_ids', []))
+
+        # Integrar tombstones enviados por los clientes para no resucitar elementos eliminados
+        for did in incoming_data.get('deleted_corte_ids', []):
+            deleted_corte_ids.add(str(did))
+        for did in incoming_data.get('deleted_adeudado_ids', []):
+            deleted_adeudado_ids.add(str(did))
+        for did in incoming_data.get('deleted_cliente_ids', []):
+            deleted_cliente_ids.add(str(did))
+        for did in incoming_data.get('deleted_turno_ids', []):
+            deleted_turno_ids.add(str(did))
 
         # 1. Barberos
         if action == 'save_barberos' and 'barberos' in incoming_data:
@@ -119,7 +160,12 @@ def process_data_update(incoming_data):
             final_data['cortes'] = merged_c
         elif action == 'save_cortes':
             incoming_cortes = incoming_data.get('cortes', [])
-            final_data['cortes'] = [c for c in incoming_cortes if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
+            existing_cortes = [c for c in existing_data.get('cortes', []) if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
+            c_map = {str(c['id']): c for c in existing_cortes if 'id' in c}
+            for c in incoming_cortes:
+                if isinstance(c, dict) and 'id' in c and str(c['id']) not in deleted_corte_ids:
+                    c_map[str(c['id'])] = c
+            final_data['cortes'] = sorted(list(c_map.values()), key=lambda x: x.get('timestamp', 0), reverse=True)
         else:
             existing_cortes = existing_data.get('cortes', [])
             final_data['cortes'] = [c for c in existing_cortes if isinstance(c, dict) and str(c.get('id')) not in deleted_corte_ids]
@@ -137,24 +183,23 @@ def process_data_update(incoming_data):
             if nuevo_cliente and isinstance(nuevo_cliente, dict) and nuevo_cliente.get('id'):
                 deleted_cliente_ids.discard(str(nuevo_cliente['id']))
             incoming_clientes = incoming_data.get('clientes', [])
-            if incoming_clientes:
-                final_data['clientes'] = [c for c in incoming_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
-            elif nuevo_cliente and isinstance(nuevo_cliente, dict):
-                current_cl = [c for c in existing_data.get('clientes', []) if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
-                found = False
-                for idx, c in enumerate(current_cl):
-                    if str(c.get('id')) == str(nuevo_cliente.get('id')):
-                        current_cl[idx] = {**c, **nuevo_cliente}
-                        found = True
-                        break
-                if not found:
-                    current_cl.insert(0, nuevo_cliente)
-                final_data['clientes'] = current_cl
+            existing_clientes = [c for c in existing_data.get('clientes', []) if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+            cl_map = {str(c['id']): c for c in existing_clientes if 'id' in c}
+            for c in incoming_clientes:
+                if isinstance(c, dict) and 'id' in c and str(c['id']) not in deleted_cliente_ids:
+                    cl_map[str(c['id'])] = c
+            if nuevo_cliente and isinstance(nuevo_cliente, dict) and 'id' in nuevo_cliente:
+                cl_map[str(nuevo_cliente['id'])] = nuevo_cliente
+            final_data['clientes'] = list(cl_map.values())
         elif action == 'save_clientes':
             incoming_clientes = incoming_data.get('clientes', [])
-            final_data['clientes'] = [c for c in incoming_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+            existing_clientes = [c for c in existing_data.get('clientes', []) if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
+            cl_map = {str(c['id']): c for c in existing_clientes if 'id' in c}
+            for c in incoming_clientes:
+                if isinstance(c, dict) and 'id' in c and str(c['id']) not in deleted_cliente_ids:
+                    cl_map[str(c['id'])] = c
+            final_data['clientes'] = list(cl_map.values())
         else:
-            # En peticiones generales o de sondeo, el servidor es autoritativo y nunca resucita clientes eliminados
             existing_clientes = existing_data.get('clientes', [])
             final_data['clientes'] = [c for c in existing_clientes if isinstance(c, dict) and str(c.get('id')) not in deleted_cliente_ids]
         final_data['deleted_cliente_ids'] = list(deleted_cliente_ids)
@@ -209,7 +254,11 @@ def process_data_update(incoming_data):
             final_data['turnos'] = [t for t in existing_turnos if str(t.get('id')) != str(turno_id)]
         elif action == 'save_turnos':
             incoming_turnos = incoming_data.get('turnos', [])
-            final_data['turnos'] = [t for t in incoming_turnos if isinstance(t, dict) and str(t.get('id')) not in deleted_turno_ids]
+            t_map = {str(t['id']): t for t in existing_turnos if 'id' in t}
+            for t in incoming_turnos:
+                if isinstance(t, dict) and 'id' in t and str(t['id']) not in deleted_turno_ids:
+                    t_map[str(t['id'])] = t
+            final_data['turnos'] = list(t_map.values())
         else:
             final_data['turnos'] = existing_turnos
         final_data['deleted_turno_ids'] = list(deleted_turno_ids)
@@ -258,7 +307,12 @@ def process_data_update(incoming_data):
             cs_id = incoming_data.get('cierreSemanalId')
             final_data['cierres_semanales'] = [c for c in existing_cierres_sem if isinstance(c, dict) and str(c.get('id')) != str(cs_id)]
         elif action == 'save_cierres_semanales':
-            final_data['cierres_semanales'] = incoming_data.get('cierres_semanales', [])
+            incoming_cs = incoming_data.get('cierres_semanales', [])
+            cs_map = {str(c['id']): c for c in existing_cierres_sem if isinstance(c, dict) and 'id' in c}
+            for c in incoming_cs:
+                if isinstance(c, dict) and 'id' in c:
+                    cs_map[str(c['id'])] = c
+            final_data['cierres_semanales'] = sorted(list(cs_map.values()), key=lambda x: x.get('timestamp', 0), reverse=True)
         else:
             final_data['cierres_semanales'] = existing_cierres_sem
 
@@ -285,9 +339,7 @@ def process_data_update(incoming_data):
             final_data['deleted_turno_ids'] = []
             final_data['deleted_adeudado_ids'] = []
 
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(final_data, f, ensure_ascii=False, indent=2)
-
+    safe_write_data(final_data)
     return final_data
 
 
@@ -331,13 +383,7 @@ try:
             return ('', 204)
 
         if request.method == 'GET':
-            data = {}
-            if os.path.exists(DATA_FILE):
-                try:
-                    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                except Exception:
-                    data = {}
+            data = read_data_file()
             if 'cierres_semanales' not in data:
                 data['cierres_semanales'] = []
             if 'caja_status' not in data:
@@ -395,13 +441,7 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.end_headers()
-            data = {}
-            if os.path.exists(DATA_FILE):
-                try:
-                    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                except Exception:
-                    data = {}
+            data = read_data_file()
             if 'cierres_semanales' not in data:
                 data['cierres_semanales'] = []
             if 'caja_status' not in data:
@@ -458,11 +498,10 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
 @with_data_lock
 def ejecutar_autocierre_dia(fecha_iso):
     """Genera el cierre de caja de una fecha si tiene cortes y no esta cerrada."""
-    if not os.path.exists(DATA_FILE):
-        return
     try:
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        data = read_data_file()
+        if not data:
+            return
 
         cortes_del_dia = [c for c in data.get('cortes', []) if isinstance(c, dict) and c.get('fecha') == fecha_iso]
         if not cortes_del_dia:
@@ -524,8 +563,7 @@ def ejecutar_autocierre_dia(fecha_iso):
         cierres.insert(0, nuevo_cierre)
         data['cierres'] = cierres
 
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        safe_write_data(data)
 
         print(f"[AUTO-CIERRE] Caja del dia {fecha_iso} cerrada automaticamente a las 23:59 hs (Total: ${total}).")
     except Exception as e:
