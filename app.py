@@ -81,6 +81,12 @@ def get_server_info():
     info['cloud'] = get_cloud_status()
     return info
 
+DEFAULT_USUARIOS = [
+    {'id': 'user-laureano', 'nombre': 'Laureano', 'role': 'barbero', 'pin': '1313', 'foto': 'img/laureano.jpg'},
+    {'id': 'user-jose', 'nombre': 'José', 'role': 'dueno', 'pin': '1812', 'foto': None},
+    {'id': 'user-diego', 'nombre': 'Diego', 'role': 'dueno', 'pin': '2626', 'foto': None}
+]
+
 @with_data_lock
 def read_data_file():
     """
@@ -100,29 +106,38 @@ def read_data_file():
                     os.replace(tmp_file, DATA_FILE)
                 except Exception:
                     pass
+                if 'usuarios' not in cloud_data or not cloud_data['usuarios']:
+                    cloud_data['usuarios'] = list(DEFAULT_USUARIOS)
                 return cloud_data
         except Exception as e:
             print(f"[TURSO SYNC WARNING] No se pudo leer de Turso Cloud, usando local: {e}")
 
     # Modo local / fallback
+    res = {}
     if not os.path.exists(DATA_FILE):
-        return {}
+        res = {'usuarios': list(DEFAULT_USUARIOS)}
+        return res
     for _ in range(3):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 content = f.read().strip()
                 if content:
-                    return json.loads(content)
+                    res = json.loads(content)
+                    break
         except Exception:
             time.sleep(0.05)
-    bak_file = DATA_FILE + '.bak'
-    if os.path.exists(bak_file):
-        try:
-            with open(bak_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
+    if not res:
+        bak_file = DATA_FILE + '.bak'
+        if os.path.exists(bak_file):
+            try:
+                with open(bak_file, 'r', encoding='utf-8') as f:
+                    res = json.load(f)
+            except Exception:
+                pass
+    if isinstance(res, dict):
+        if 'usuarios' not in res or not res['usuarios']:
+            res['usuarios'] = list(DEFAULT_USUARIOS)
+    return res
 
 def safe_write_data(data):
     """
@@ -399,10 +414,18 @@ def process_data_update(incoming_data):
                 final_data['cortes_adeudados'] = incoming_data['cortes_adeudados']
             if 'cierres_semanales' in incoming_data:
                 final_data['cierres_semanales'] = incoming_data['cierres_semanales']
+            if 'usuarios' in incoming_data:
+                final_data['usuarios'] = incoming_data['usuarios']
             final_data['deleted_cliente_ids'] = []
             final_data['deleted_corte_ids'] = []
             final_data['deleted_turno_ids'] = []
             final_data['deleted_adeudado_ids'] = []
+
+        # 10. Usuarios y Claves PIN (Dueños y Barberos)
+        if action == 'save_usuarios' and 'usuarios' in incoming_data:
+            final_data['usuarios'] = incoming_data['usuarios']
+        elif 'usuarios' not in final_data:
+            final_data['usuarios'] = existing_data.get('usuarios', list(DEFAULT_USUARIOS))
 
     safe_write_data(final_data)
     return final_data

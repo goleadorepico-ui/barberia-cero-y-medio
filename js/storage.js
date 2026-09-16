@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   TURNOS: 'barbercontrol_turnos',
   ADEUDADOS: 'barbercontrol_adeudados',
   CIERRES_SEMANALES: 'barbercontrol_cierres_semanales',
+  USUARIOS: 'barbercontrol_usuarios',
   CONFIG: 'barbercontrol_config',
   SESSION: 'barbercontrol_session'
 };
@@ -23,6 +24,12 @@ const _FALLBACK_BARBEROS = [
 const _FALLBACK_SERVICIOS = [
   { id: 'srv-1', nombre: 'Corte', precio: 15000 },
   { id: 'srv-2', nombre: 'Corte y Barba', precio: 18000 }
+];
+
+const _FALLBACK_USUARIOS = [
+  { id: 'user-laureano', nombre: 'Laureano', role: 'barbero', pin: '1313', foto: 'img/laureano.jpg', barberoId: 'barbero-1' },
+  { id: 'user-jose', nombre: 'José', role: 'dueno', pin: '1812', foto: null },
+  { id: 'user-diego', nombre: 'Diego', role: 'dueno', pin: '2626', foto: null }
 ];
 
 function _safeUUID() {
@@ -88,6 +95,82 @@ const StorageService = {
 
   clearSession() {
     localStorage.removeItem(STORAGE_KEYS.SESSION);
+  },
+
+  // ============================================================
+  // USUARIOS Y CLAVES PIN (ADMINISTRACIÓN DE ACCESO)
+  // ============================================================
+  getUsuarios() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.USUARIOS);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Error al leer usuarios:', e);
+    }
+    const defs = (typeof DEFAULT_USUARIOS !== 'undefined') ? DEFAULT_USUARIOS : _FALLBACK_USUARIOS;
+    this.saveUsuarios(defs, true);
+    return defs;
+  },
+
+  saveUsuarios(usuarios, skipPush = false) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.USUARIOS, JSON.stringify(usuarios));
+      if (!skipPush) {
+        this.pushToServer({
+          action: 'save_usuarios',
+          usuarios
+        });
+      }
+    } catch (e) {
+      console.error('Error al guardar usuarios:', e);
+    }
+  },
+
+  upsertUsuario(usuario) {
+    const usuarios = this.getUsuarios();
+    if (usuario.id) {
+      const idx = usuarios.findIndex(u => u.id === usuario.id);
+      if (idx !== -1) {
+        usuarios[idx] = { ...usuarios[idx], ...usuario };
+      } else {
+        usuarios.push(usuario);
+      }
+    } else {
+      usuario.id = 'user-' + _safeUUID();
+      usuarios.push(usuario);
+    }
+    this.saveUsuarios(usuarios);
+    return usuario;
+  },
+
+  deleteUsuario(id) {
+    const usuarios = this.getUsuarios();
+    const target = usuarios.find(u => u.id === id);
+    if (!target) return false;
+
+    // Proteger: no permitir borrar si es el único dueño
+    if (target.role === 'dueno') {
+      const dueñosRestantes = usuarios.filter(u => u.role === 'dueno' && u.id !== id);
+      if (dueñosRestantes.length === 0) {
+        throw new Error('Debe quedar al menos un dueño registrado en el sistema.');
+      }
+    }
+
+    const filtrados = usuarios.filter(u => u.id !== id);
+    this.saveUsuarios(filtrados);
+    return true;
+  },
+
+  cambiarPinUsuario(id, nuevoPin) {
+    const usuarios = this.getUsuarios();
+    const u = usuarios.find(item => item.id === id);
+    if (!u) return false;
+    u.pin = String(nuevoPin).trim();
+    this.saveUsuarios(usuarios);
+    return true;
   },
 
   // BARBEROS
@@ -950,6 +1033,15 @@ const StorageService = {
               cortes_adeudados: mergedAdeudados,
               deleted_adeudado_ids: Array.from(deletedAdeudadoIds)
             });
+          }
+
+          // Usuarios y Claves: Fusión segura
+          if (Array.isArray(remoteData.usuarios) && remoteData.usuarios.length > 0) {
+            const currentUsuarios = this.getUsuarios();
+            if (JSON.stringify(currentUsuarios) !== JSON.stringify(remoteData.usuarios)) {
+              this.saveUsuarios(remoteData.usuarios, true);
+              hasRemoteChanges = true;
+            }
           }
 
           // Informacion del servidor y tunel celular (Cloudflare & WiFi IP)

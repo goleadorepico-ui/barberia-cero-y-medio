@@ -13,35 +13,45 @@ const DEFAULT_SERVICIOS = [
   { id: 'srv-2', nombre: 'Corte y Barba', precio: 18000 }
 ];
 
-// Perfiles de usuario y claves PIN de acceso
-const AUTH_PROFILES = {
-  barbero: {
-    role: 'barbero',
+// Perfiles de usuario y claves PIN de acceso predeterminadas
+const DEFAULT_USUARIOS = [
+  {
+    id: 'user-laureano',
     nombre: 'Laureano',
+    role: 'barbero',
     pin: '1313',
     titulo: 'Barbero',
     badgeText: 'Barbero',
     badgeIcon: 'scissors',
-    foto: 'img/laureano.jpg'
+    foto: 'img/laureano.jpg',
+    barberoId: 'barbero-1'
   },
-  dueno: {
-    role: 'dueno',
+  {
+    id: 'user-jose',
     nombre: 'José',
+    role: 'dueno',
     pin: '1812',
     titulo: 'Dueño / Admin',
     badgeText: 'Dueño',
     badgeIcon: 'crown',
     foto: null
   },
-  diego: {
-    role: 'dueno',
+  {
+    id: 'user-diego',
     nombre: 'Diego',
+    role: 'dueno',
     pin: '2626',
     titulo: 'Dueño / Admin',
     badgeText: 'Dueño',
     badgeIcon: 'crown',
     foto: null
   }
+];
+
+let AUTH_PROFILES = {
+  barbero: DEFAULT_USUARIOS[0],
+  dueno: DEFAULT_USUARIOS[1],
+  diego: DEFAULT_USUARIOS[2]
 };
 
 // Formateador de moneda (ej: $ 8.000)

@@ -1251,6 +1251,20 @@ function actualizarLiquidacionesBarberos() {
     cortesFiltrados = allCortes;
   }
 
+  const session = StorageService.getSession();
+  const isDueno = session && session.role === 'dueno';
+
+  const btnAgregar = document.getElementById('btnAgregarBarberoTab');
+  if (btnAgregar) {
+    if (isDueno) {
+      btnAgregar.classList.remove('hidden');
+      btnAgregar.classList.add('inline-flex');
+    } else {
+      btnAgregar.classList.add('hidden');
+      btnAgregar.classList.remove('inline-flex');
+    }
+  }
+
   container.innerHTML = barberos.map(b => {
     const cortesB = cortesFiltrados.filter(c => c.barberoId === b.id);
     const totalMonto = cortesB.reduce((acc, c) => acc + c.monto, 0);
@@ -1262,36 +1276,50 @@ function actualizarLiquidacionesBarberos() {
     const mp = cortesB.filter(c => c.metodoPago === 'MERCADOPAGO').reduce((s, c) => s + c.monto, 0);
 
     return `
-      <div class="bg-brand-card rounded-2xl border border-brand-border p-5 shadow-lg relative overflow-hidden">
-        <div class="flex items-center justify-between pb-3 border-b border-brand-border">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-xl overflow-hidden border border-brand-gold/40 flex-shrink-0 shadow bg-brand-dark">
-              <img src="${b.foto || 'img/laureano.jpg'}" alt="${b.nombre}" class="w-full h-full object-cover object-top">
+      <div class="bg-brand-card rounded-2xl border border-brand-border p-5 shadow-lg relative overflow-hidden flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl overflow-hidden border border-brand-gold/40 flex-shrink-0 shadow bg-brand-dark">
+                <img src="${b.foto || 'img/laureano.jpg'}" alt="${b.nombre}" class="w-full h-full object-cover object-top">
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-white">${b.nombre}</h3>
+                <span class="text-xs text-gray-400">Barbero (${b.comision || 50}%)</span>
+              </div>
             </div>
-            <div>
-              <h3 class="text-base font-bold text-white">${b.nombre}</h3>
-              <span class="text-xs text-gray-400">Barbero</span>
+            <span class="text-xs font-black px-2.5 py-1 rounded-lg bg-brand-dark border border-brand-border text-brand-gold">
+              ${cortesB.length} cortes
+            </span>
+          </div>
+
+          <div class="mt-4 space-y-2.5 text-xs">
+            <div class="flex justify-between text-gray-400">
+              <span>Cortes Realizados:</span>
+              <span class="font-bold text-white text-sm">${cortesB.length}</span>
+            </div>
+            <div class="flex justify-between text-emerald-400 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <span class="font-bold">Total Recaudado:</span>
+              <span class="font-black text-sm">${formatCurrency(totalMonto)}</span>
+            </div>
+            <div class="pt-2 border-t border-brand-border/60 flex justify-between text-[11px] text-gray-400">
+              <span>💵 Efectivo: ${formatCurrency(efectivo)}</span>
+              <span>📱 Mercado Pago: ${formatCurrency(mp)}</span>
             </div>
           </div>
-          <span class="text-xs font-black px-2.5 py-1 rounded-lg bg-brand-dark border border-brand-border text-brand-gold">
-            ${cortesB.length} cortes
-          </span>
         </div>
 
-        <div class="mt-4 space-y-2.5 text-xs">
-          <div class="flex justify-between text-gray-400">
-            <span>Cortes Realizados:</span>
-            <span class="font-bold text-white text-sm">${cortesB.length}</span>
+        ${isDueno ? `
+          <div class="pt-3 mt-3 border-t border-brand-border/60 flex items-center justify-between gap-2">
+            <button onclick="editarBarbero('${b.id}')" class="flex-1 py-1.5 px-2.5 rounded-xl bg-brand-dark hover:bg-brand-cardHover border border-brand-border text-xs font-semibold text-gray-300 hover:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5 text-brand-gold"></i>
+              <span>Editar Info / Foto</span>
+            </button>
+            <button onclick="eliminarBarbero('${b.id}')" class="p-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs transition-all cursor-pointer" title="Eliminar Barbero">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
           </div>
-          <div class="flex justify-between text-emerald-400 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <span class="font-bold">Total Recaudado:</span>
-            <span class="font-black text-sm">${formatCurrency(totalMonto)}</span>
-          </div>
-          <div class="pt-2 border-t border-brand-border/60 flex justify-between text-[11px] text-gray-400">
-            <span>💵 Efectivo: ${formatCurrency(efectivo)}</span>
-            <span>📱 Mercado Pago: ${formatCurrency(mp)}</span>
-          </div>
-        </div>
+        ` : ''}
       </div>
     `;
   }).join('');
@@ -1964,17 +1992,67 @@ async function eliminarCierreSemanal(id) {
 }
 
 // ============================================================
+// Helper: Verificar si el usuario conectado es Dueño
+function isCurrentUserDueno() {
+  const session = StorageService.getSession();
+  return session && session.role === 'dueno';
+}
+
+// Compresor liviano de imágenes en el cliente (Base64 JPEG ~20-30KB)
+function compressImageFile(file, maxWidth, maxHeight, quality, callback) {
+  if (!file || !file.type.startsWith('image/')) {
+    showToast('Por favor selecciona un archivo de imagen válido.', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality || 0.82);
+      callback(dataUrl);
+    };
+    img.onerror = function() {
+      showToast('Error al procesar la imagen.', 'error');
+    };
+    img.src = e.target.result;
+  };
+  reader.onerror = function() {
+    showToast('Error al leer el archivo.', 'error');
+  };
+  reader.readAsDataURL(file);
+}
+
 // TAB 5: CONFIGURACIÓN
 // ============================================================
 function renderConfigTab() {
   renderConfigBarberos();
   renderConfigServicios();
+  renderConfigUsuarios();
 }
 
 function renderConfigBarberos() {
   const container = document.getElementById('listaConfigBarberos');
   if (!container) return;
   const barberos = StorageService.getBarberos();
+  const isDueno = isCurrentUserDueno();
 
   container.innerHTML = barberos.map(b => `
     <div class="p-3 bg-brand-dark rounded-xl border border-brand-border flex items-center justify-between gap-3">
@@ -1984,86 +2062,449 @@ function renderConfigBarberos() {
         </div>
         <div>
           <span class="text-sm font-bold text-white block">${b.nombre}</span>
-          <span class="text-xs text-gray-400">Barbero</span>
+          <span class="text-xs text-gray-400">Barbero (${b.comision || 50}%)</span>
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
-        <button onclick="editarBarbero('${b.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-brand-card transition-colors">
-          <i data-lucide="edit-2" class="w-4 h-4"></i>
-        </button>
-        <button onclick="eliminarBarbero('${b.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-        </button>
-      </div>
+      ${isDueno ? `
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="editarBarbero('${b.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-brand-card transition-colors cursor-pointer" title="Editar Barbero">
+            <i data-lucide="edit-2" class="w-4 h-4"></i>
+          </button>
+          <button type="button" onclick="eliminarBarbero('${b.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" title="Eliminar Barbero">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      ` : ''}
     </div>
   `).join('');
 
   if (window.lucide) lucide.createIcons();
 }
 
-function renderConfigServicios() {
-  const container = document.getElementById('listaConfigServicios');
+// GESTIÓN DE USUARIOS Y CLAVES PIN (SOLO DUEÑO)
+function renderConfigUsuarios() {
+  const container = document.getElementById('listaConfigUsuarios');
   if (!container) return;
-  const servicios = StorageService.getServicios();
 
-  container.innerHTML = servicios.map(s => `
-    <div class="p-3 bg-brand-dark rounded-xl border border-brand-border flex items-center justify-between gap-3">
-      <div>
-        <span class="text-sm font-bold text-white block">${s.nombre}</span>
-        <span class="text-xs text-brand-gold font-semibold">${formatCurrency(s.precio)}</span>
+  const usuarios = StorageService.getUsuarios();
+  const session = StorageService.getSession();
+
+  container.innerHTML = usuarios.map(u => {
+    const isDueno = u.role === 'dueno';
+    let avatarHtml = '';
+    if (u.foto) {
+      avatarHtml = `<div class="w-11 h-11 rounded-xl overflow-hidden border border-brand-gold/40 flex-shrink-0 bg-brand-dark shadow">
+        <img src="${u.foto}" alt="${u.nombre}" class="w-full h-full object-cover object-top">
+      </div>`;
+    } else if (isDueno) {
+      avatarHtml = `<div class="w-11 h-11 rounded-xl border border-amber-500/40 bg-amber-500/15 flex items-center justify-center flex-shrink-0 text-amber-400 shadow">
+        <i data-lucide="crown" class="w-5 h-5"></i>
+      </div>`;
+    } else {
+      avatarHtml = `<div class="w-11 h-11 rounded-xl border border-brand-gold/40 bg-brand-gold/15 flex items-center justify-center flex-shrink-0 text-brand-gold shadow">
+        <i data-lucide="scissors" class="w-5 h-5"></i>
+      </div>`;
+    }
+
+    const isCurrentSession = session && (session.userId === u.id || session.name === u.nombre);
+
+    return `
+      <div class="p-4 bg-brand-dark rounded-2xl border border-brand-border flex flex-col justify-between gap-3 shadow-md">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            ${avatarHtml}
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-sm font-bold text-white truncate">${u.nombre}</span>
+                ${isCurrentSession ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">Tú</span>' : ''}
+              </div>
+              <span class="text-[11px] font-semibold ${isDueno ? 'text-amber-400' : 'text-brand-gold'}">
+                ${isDueno ? '👑 Dueño' : '✂️ Barbero'}
+              </span>
+            </div>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-lg bg-brand-card border border-brand-border font-mono text-gray-300 font-bold" title="Clave PIN de acceso">
+            PIN: ••••
+          </span>
+        </div>
+
+        <div class="pt-2 border-t border-brand-border/60 flex items-center justify-between gap-2 text-xs">
+          <button type="button" onclick="openModalCambiarPin('${u.id}')" class="px-2.5 py-1.5 rounded-lg bg-brand-card hover:bg-brand-cardHover border border-brand-border text-amber-300 hover:text-amber-200 font-semibold flex items-center gap-1.5 transition-all cursor-pointer" title="Modificar PIN">
+            <i data-lucide="key" class="w-3.5 h-3.5"></i>
+            <span>Cambiar PIN</span>
+          </button>
+          
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="openModalEditarUsuario('${u.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-brand-card transition-colors cursor-pointer" title="Editar Nombre / Foto">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <button type="button" onclick="eliminarUsuarioConfirm('${u.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" title="Eliminar Usuario">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
       </div>
-      <div class="flex items-center gap-1.5">
-        <button onclick="editarServicio('${s.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-brand-card transition-colors">
-          <i data-lucide="edit-2" class="w-4 h-4"></i>
-        </button>
-        <button onclick="eliminarServicio('${s.id}')" class="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-        </button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   if (window.lucide) lucide.createIcons();
 }
 
-// MODAL BARBERO
+function openModalNuevoUsuario() {
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden crear nuevos usuarios.', 'error');
+    return;
+  }
+  const title = document.getElementById('modalUsuarioTitle');
+  if (title) title.textContent = 'Nuevo Usuario';
+
+  const editId = document.getElementById('usuarioEditId');
+  if (editId) editId.value = '';
+
+  const nombre = document.getElementById('inputUsuarioNombre');
+  if (nombre) nombre.value = '';
+
+  const rol = document.getElementById('inputUsuarioRol');
+  if (rol) rol.value = 'barbero';
+
+  const pin = document.getElementById('inputUsuarioPin');
+  if (pin) pin.value = '';
+
+  const foto = document.getElementById('inputUsuarioFoto');
+  if (foto) foto.value = '';
+
+  const preview = document.getElementById('usuarioFotoPreview');
+  if (preview) preview.src = 'img/laureano.jpg';
+
+  const modal = document.getElementById('modalUsuario');
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function openModalEditarUsuario(id) {
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden editar usuarios.', 'error');
+    return;
+  }
+  const usuarios = StorageService.getUsuarios();
+  const u = usuarios.find(item => item.id === id);
+  if (!u) return;
+
+  const title = document.getElementById('modalUsuarioTitle');
+  if (title) title.textContent = 'Editar Usuario';
+
+  const editId = document.getElementById('usuarioEditId');
+  if (editId) editId.value = u.id;
+
+  const nombre = document.getElementById('inputUsuarioNombre');
+  if (nombre) nombre.value = u.nombre;
+
+  const rol = document.getElementById('inputUsuarioRol');
+  if (rol) rol.value = u.role;
+
+  const pin = document.getElementById('inputUsuarioPin');
+  if (pin) pin.value = u.pin;
+
+  const foto = document.getElementById('inputUsuarioFoto');
+  if (foto) foto.value = u.foto || '';
+
+  const preview = document.getElementById('usuarioFotoPreview');
+  if (preview) {
+    preview.src = u.foto || (u.role === 'dueno' ? 'img/logo.jpg' : 'img/laureano.jpg');
+  }
+
+  const modal = document.getElementById('modalUsuario');
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeModalUsuario() {
+  const modal = document.getElementById('modalUsuario');
+  if (modal) modal.classList.add('hidden');
+}
+
+function guardarUsuario(event) {
+  event.preventDefault();
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden administrar usuarios.', 'error');
+    return;
+  }
+
+  const id = document.getElementById('usuarioEditId').value.trim();
+  const nombre = document.getElementById('inputUsuarioNombre').value.trim();
+  const role = document.getElementById('inputUsuarioRol').value;
+  const pin = document.getElementById('inputUsuarioPin').value.trim();
+  const foto = document.getElementById('inputUsuarioFoto').value.trim() || null;
+
+  if (!nombre) {
+    showToast('Ingresa el nombre del usuario.', 'error');
+    return;
+  }
+  if (!/^[0-9]{4,6}$/.test(pin)) {
+    showToast('La clave PIN debe tener 4 dígitos numéricos.', 'error');
+    return;
+  }
+
+  const saved = StorageService.upsertUsuario({
+    id: id || undefined,
+    nombre,
+    role,
+    pin,
+    foto
+  });
+
+  // Si es barbero, asegurar que exista también en la lista de barberos para el mostrador
+  if (role === 'barbero') {
+    const barberos = StorageService.getBarberos();
+    const existing = barberos.find(b => b.nombre.toLowerCase() === nombre.toLowerCase());
+    if (!existing) {
+      StorageService.upsertBarbero({
+        nombre,
+        comision: 50,
+        foto: foto || undefined
+      });
+    } else if (foto && (!existing.foto || existing.foto !== foto)) {
+      existing.foto = foto;
+      StorageService.upsertBarbero(existing);
+    }
+  }
+
+  // Si el usuario editado es el de la sesión activa, sincronizar encabezado
+  const currentSession = StorageService.getSession();
+  if (currentSession && (currentSession.userId === saved.id || currentSession.name === saved.nombre)) {
+    currentSession.userId = saved.id;
+    currentSession.name = saved.nombre;
+    currentSession.role = saved.role;
+    currentSession.foto = saved.foto;
+    StorageService.saveSession(currentSession);
+    renderUserHeader(currentSession);
+    applyRolePermissions(currentSession.role);
+  }
+
+  closeModalUsuario();
+  renderConfigUsuarios();
+  renderLoginProfiles();
+  renderAllViews();
+  showToast('Usuario guardado exitosamente.', 'success');
+}
+
+function openModalCambiarPin(id) {
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden modificar claves de acceso.', 'error');
+    return;
+  }
+  const usuarios = StorageService.getUsuarios();
+  const u = usuarios.find(item => item.id === id);
+  if (!u) return;
+
+  const idInput = document.getElementById('cambiarPinUsuarioId');
+  if (idInput) idInput.value = u.id;
+
+  const nombreText = document.getElementById('modalPinUsuarioNombre');
+  if (nombreText) {
+    nombreText.textContent = `${u.nombre} (${u.role === 'dueno' ? 'Dueño' : 'Barbero'})`;
+  }
+
+  const pinInput = document.getElementById('inputNuevoPinVal');
+  if (pinInput) {
+    pinInput.value = '';
+    pinInput.focus();
+  }
+
+  const modal = document.getElementById('modalCambiarPin');
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeModalCambiarPin() {
+  const modal = document.getElementById('modalCambiarPin');
+  if (modal) modal.classList.add('hidden');
+}
+
+function guardarNuevoPin(event) {
+  event.preventDefault();
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden modificar claves de acceso.', 'error');
+    return;
+  }
+  const id = document.getElementById('cambiarPinUsuarioId').value;
+  const nuevoPin = document.getElementById('inputNuevoPinVal').value.trim();
+
+  if (!/^[0-9]{4,6}$/.test(nuevoPin)) {
+    showToast('La clave PIN debe tener 4 dígitos numéricos.', 'error');
+    return;
+  }
+
+  const ok = StorageService.cambiarPinUsuario(id, nuevoPin);
+  if (ok) {
+    closeModalCambiarPin();
+    renderConfigUsuarios();
+    renderLoginProfiles();
+    showToast('¡Clave PIN actualizada con éxito!', 'success');
+  } else {
+    showToast('No se encontró el usuario a actualizar.', 'error');
+  }
+}
+
+function eliminarUsuarioConfirm(id) {
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden eliminar usuarios.', 'error');
+    return;
+  }
+  const usuarios = StorageService.getUsuarios();
+  const u = usuarios.find(item => item.id === id);
+  if (!u) return;
+
+  const session = StorageService.getSession();
+  if (session && (session.userId === u.id || session.name === u.nombre)) {
+    if (!confirm(`Estás eliminando tu propio usuario (${u.nombre}). Si continúas se cerrará tu sesión. ¿Deseas continuar?`)) {
+      return;
+    }
+  } else {
+    if (!confirm(`¿Deseas eliminar al usuario ${u.nombre}?`)) {
+      return;
+    }
+  }
+
+  try {
+    const ok = StorageService.deleteUsuario(id);
+    if (ok) {
+      if (session && (session.userId === u.id || session.name === u.nombre)) {
+        cerrarSesion();
+      } else {
+        renderConfigUsuarios();
+        renderLoginProfiles();
+        showToast('Usuario eliminado.', 'info');
+      }
+    }
+  } catch (err) {
+    showToast(err.message || 'No se pudo eliminar el usuario.', 'error');
+  }
+}
+
+function togglePinVisibility(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function handleUsuarioFotoFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  compressImageFile(file, 260, 260, 0.82, (dataUrl) => {
+    const inputFoto = document.getElementById('inputUsuarioFoto');
+    const preview = document.getElementById('usuarioFotoPreview');
+    if (inputFoto) inputFoto.value = dataUrl;
+    if (preview) preview.src = dataUrl;
+    showToast('Foto cargada correctamente.', 'success');
+  });
+  event.target.value = '';
+}
+
+function quitarFotoUsuario() {
+  const inputFoto = document.getElementById('inputUsuarioFoto');
+  const preview = document.getElementById('usuarioFotoPreview');
+  const rol = document.getElementById('inputUsuarioRol');
+  const isDueno = rol && rol.value === 'dueno';
+
+  if (inputFoto) inputFoto.value = '';
+  if (preview) preview.src = isDueno ? 'img/logo.jpg' : 'img/laureano.jpg';
+  showToast('Foto restablecida.', 'info');
+}
+
+// MODAL BARBERO (SOLO DUEÑOS)
 function openModalNuevoBarbero() {
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden agregar barberos.', 'error');
+    return;
+  }
   document.getElementById('modalBarberoTitle').textContent = 'Nuevo Barbero';
   document.getElementById('barberoEditId').value = '';
+  document.getElementById('inputBarberoFoto').value = '';
+  document.getElementById('barberoFotoPreview').src = 'img/laureano.jpg';
   document.getElementById('inputBarberoNombre').value = '';
   document.getElementById('inputBarberoComision').value = 50;
   document.getElementById('modalBarbero').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
 }
 
 function editarBarbero(id) {
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden editar barberos.', 'error');
+    return;
+  }
   const b = StorageService.getBarberos().find(item => item.id === id);
   if (!b) return;
   document.getElementById('modalBarberoTitle').textContent = 'Editar Barbero';
   document.getElementById('barberoEditId').value = b.id;
+  document.getElementById('inputBarberoFoto').value = b.foto || '';
+  document.getElementById('barberoFotoPreview').src = b.foto || 'img/laureano.jpg';
   document.getElementById('inputBarberoNombre').value = b.nombre;
   document.getElementById('inputBarberoComision').value = b.comision || 50;
   document.getElementById('modalBarbero').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
 }
 
 function closeModalBarbero() {
   document.getElementById('modalBarbero').classList.add('hidden');
 }
 
+function handleBarberoFotoFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  compressImageFile(file, 260, 260, 0.82, (dataUrl) => {
+    const inputFoto = document.getElementById('inputBarberoFoto');
+    const preview = document.getElementById('barberoFotoPreview');
+    if (inputFoto) inputFoto.value = dataUrl;
+    if (preview) preview.src = dataUrl;
+    showToast('Foto cargada correctamente.', 'success');
+  });
+  event.target.value = '';
+}
+
+function quitarFotoBarbero() {
+  const inputFoto = document.getElementById('inputBarberoFoto');
+  const preview = document.getElementById('barberoFotoPreview');
+  if (inputFoto) inputFoto.value = '';
+  if (preview) preview.src = 'img/laureano.jpg';
+  showToast('Foto restablecida al valor por defecto.', 'info');
+}
+
 function guardarBarbero(event) {
   event.preventDefault();
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden modificar barberos.', 'error');
+    return;
+  }
   const id = document.getElementById('barberoEditId').value;
   const nombre = document.getElementById('inputBarberoNombre').value.trim();
   const comision = parseInt(document.getElementById('inputBarberoComision').value) || 50;
+  const foto = document.getElementById('inputBarberoFoto').value.trim() || undefined;
 
   if (!nombre) return;
 
-  StorageService.upsertBarbero({ id: id || undefined, nombre, comision });
+  StorageService.upsertBarbero({ id: id || undefined, nombre, comision, foto });
+
+  // Si existe un usuario con este nombre de barbero, actualizar su foto también
+  const usuarios = StorageService.getUsuarios();
+  const userMatch = usuarios.find(u => u.nombre.toLowerCase() === nombre.toLowerCase() && u.role === 'barbero');
+  if (userMatch && foto && userMatch.foto !== foto) {
+    userMatch.foto = foto;
+    StorageService.upsertUsuario(userMatch);
+    renderConfigUsuarios();
+    renderLoginProfiles();
+  }
+
   closeModalBarbero();
   showToast('Barbero guardado con éxito.', 'success');
   renderAllViews();
 }
 
 function eliminarBarbero(id) {
+  if (!isCurrentUserDueno()) {
+    showToast('Solo los dueños pueden eliminar barberos.', 'error');
+    return;
+  }
   if (confirm('¿Deseas eliminar este barbero? Sus cortes anteriores se mantendrán.')) {
     StorageService.deleteBarbero(id);
     showToast('Barbero eliminado.', 'info');
@@ -3055,7 +3496,7 @@ function showToast(message, type = 'info') {
 
 // Estado local de la pantalla de login
 let authLoginState = {
-  selectedRole: 'barbero' // 'barbero' | 'dueno'
+  selectedUserId: null
 };
 
 // Inicializar autenticación al cargar el sistema
@@ -3075,14 +3516,17 @@ function initAuth() {
     });
   }
 
+  renderLoginProfiles();
+
   if (!session || !session.role) {
     // Si no hay sesión activa: mostrar pantalla de login
     if (loginScreen) {
       loginScreen.classList.remove('hidden');
       loginScreen.style.display = 'flex';
     }
-    seleccionarPerfilLogin('barbero');
     renderUserHeader(null);
+    const tursoBadge = document.getElementById('tursoStatusBadge');
+    if (tursoBadge) tursoBadge.classList.add('hidden');
   } else {
     // Sesión activa existente: desbloquear interfaz
     if (loginScreen) {
@@ -3094,47 +3538,99 @@ function initAuth() {
   }
 }
 
-// Seleccionar perfil en la pantalla de login
-function seleccionarPerfilLogin(role) {
-  authLoginState.selectedRole = role;
+// Renderizar tarjetas de selección de perfil en la pantalla de login
+function renderLoginProfiles() {
+  const container = document.getElementById('loginProfilesGrid');
+  if (!container) return;
 
-  const cardBarbero = document.getElementById('loginCardBarbero');
-  const cardDueno = document.getElementById('loginCardDueno');
-  const cardDiego = document.getElementById('loginCardDiego');
-  const checkBarbero = document.getElementById('checkBarbero');
-  const checkDueno = document.getElementById('checkDueno');
-  const checkDiego = document.getElementById('checkDiego');
-  const pinLabel = document.getElementById('loginPinLabel');
-  const pinInput = document.getElementById('loginPinInput');
+  const usuarios = StorageService.getUsuarios();
+  if (!usuarios || usuarios.length === 0) return;
 
-  hideLoginError();
-
-  const profile = AUTH_PROFILES[role];
-  const activeClass = 'p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-gold bg-brand-gold/10 text-white shadow-lg shadow-brand-gold/10';
-  const inactiveClass = 'p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-border bg-brand-dark/60 text-gray-300 hover:border-gray-600';
-
-  if (cardBarbero) cardBarbero.className = role === 'barbero' ? activeClass : inactiveClass;
-  if (cardDueno) cardDueno.className = role === 'dueno' ? activeClass : inactiveClass;
-  if (cardDiego) cardDiego.className = role === 'diego' ? activeClass : inactiveClass;
-
-  if (checkBarbero) checkBarbero.classList.toggle('hidden', role !== 'barbero');
-  if (checkDueno) checkDueno.classList.toggle('hidden', role !== 'dueno');
-  if (checkDiego) checkDiego.classList.toggle('hidden', role !== 'diego');
-
-  if (pinLabel && profile) {
-    const icon = profile.role === 'barbero' ? 'scissors' : 'crown';
-    const color = profile.role === 'barbero' ? 'text-brand-gold' : 'text-amber-400';
-    pinLabel.innerHTML = `<i data-lucide="${icon}" class="w-3.5 h-3.5 ${color}"></i> <span>Ingresa el PIN de ${profile.nombre}${profile.role === 'dueno' ? ' (Dueño)' : ''}</span>`;
+  // Si no hay seleccionado o el seleccionado ya no existe, elegir el primero
+  if (!authLoginState.selectedUserId || !usuarios.some(u => u.id === authLoginState.selectedUserId)) {
+    const prevSession = StorageService.getSession();
+    const match = prevSession && usuarios.find(u => u.id === prevSession.userId || u.nombre === prevSession.name);
+    authLoginState.selectedUserId = match ? match.id : usuarios[0].id;
   }
 
+  container.innerHTML = usuarios.map(u => {
+    const isSelected = u.id === authLoginState.selectedUserId;
+    const isDueno = u.role === 'dueno';
+    const activeClass = 'p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-gold bg-brand-gold/10 text-white shadow-lg shadow-brand-gold/10 cursor-pointer';
+    const inactiveClass = 'p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-border bg-brand-dark/60 text-gray-300 hover:border-gray-600 cursor-pointer';
+
+    let avatarHtml = '';
+    if (u.foto) {
+      avatarHtml = `<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-gold shadow flex-shrink-0 bg-brand-dark">
+        <img src="${u.foto}" alt="${u.nombre}" class="w-full h-full object-cover object-top">
+      </div>`;
+    } else if (isDueno) {
+      avatarHtml = `<div class="w-12 h-12 rounded-full border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/20 to-amber-700/20 flex items-center justify-center flex-shrink-0 text-amber-400 shadow">
+        <i data-lucide="crown" class="w-6 h-6"></i>
+      </div>`;
+    } else {
+      avatarHtml = `<div class="w-12 h-12 rounded-full border-2 border-brand-gold/40 bg-brand-dark flex items-center justify-center flex-shrink-0 text-brand-gold shadow">
+        <i data-lucide="scissors" class="w-6 h-6"></i>
+      </div>`;
+    }
+
+    return `
+      <button type="button" id="loginCard-${u.id}" onclick="seleccionarPerfilLogin('${u.id}')" class="${isSelected ? activeClass : inactiveClass}">
+        ${avatarHtml}
+        <div class="w-full truncate">
+          <span class="block text-xs sm:text-sm font-bold text-white leading-tight truncate">${u.nombre}</span>
+          <span class="text-[10px] font-medium ${isDueno ? 'text-amber-400/80' : 'text-brand-gold'}">${isDueno ? 'Dueño' : 'Barbero'}</span>
+        </div>
+        <div class="absolute top-2 right-2 text-brand-gold ${isSelected ? '' : 'hidden'}">
+          <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+  actualizarLoginPinLabel();
+}
+
+// Seleccionar perfil en la pantalla de login
+function seleccionarPerfilLogin(userId) {
+  authLoginState.selectedUserId = userId;
+  const usuarios = StorageService.getUsuarios();
+
+  usuarios.forEach(u => {
+    const card = document.getElementById(`loginCard-${u.id}`);
+    if (card) {
+      const isSelected = u.id === userId;
+      card.className = isSelected
+        ? 'p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-gold bg-brand-gold/10 text-white shadow-lg shadow-brand-gold/10 cursor-pointer'
+        : 'p-3 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1.5 relative group border-brand-border bg-brand-dark/60 text-gray-300 hover:border-gray-600 cursor-pointer';
+      const check = card.querySelector('div.text-brand-gold');
+      if (check) check.classList.toggle('hidden', !isSelected);
+    }
+  });
+
+  actualizarLoginPinLabel();
+
+  const pinInput = document.getElementById('loginPinInput');
   if (pinInput) {
     pinInput.value = '';
     pinInput.focus();
   }
+  hideLoginError();
+}
 
-  if (window.lucide) {
-    lucide.createIcons();
-  }
+function actualizarLoginPinLabel() {
+  const pinLabel = document.getElementById('loginPinLabel');
+  if (!pinLabel) return;
+  const usuarios = StorageService.getUsuarios();
+  const user = usuarios.find(u => u.id === authLoginState.selectedUserId) || usuarios[0];
+  if (!user) return;
+
+  const isDueno = user.role === 'dueno';
+  const icon = isDueno ? 'crown' : 'scissors';
+  const color = isDueno ? 'text-amber-400' : 'text-brand-gold';
+  pinLabel.innerHTML = `<i data-lucide="${icon}" class="w-3.5 h-3.5 ${color}"></i> <span>Ingresa el PIN de ${user.nombre}${isDueno ? ' (Dueño)' : ''}</span>`;
+  if (window.lucide) lucide.createIcons();
 }
 
 // Teclado numérico: agregar dígito
@@ -3205,19 +3701,21 @@ function submitLoginAuth() {
   if (!pinInput) return;
   const pin = pinInput.value.trim();
 
-  const selectedRole = authLoginState.selectedRole;
-  const profile = AUTH_PROFILES[selectedRole];
+  const usuarios = StorageService.getUsuarios();
+  const user = usuarios.find(u => u.id === authLoginState.selectedUserId);
 
-  if (!profile) {
-    showLoginError('Perfil no válido.');
+  if (!user) {
+    showLoginError('Perfil no seleccionado.');
     return;
   }
 
-  if (pin === profile.pin) {
+  if (pin === String(user.pin).trim()) {
     // Autenticación exitosa
     const session = {
-      role: profile.role,
-      name: profile.nombre,
+      userId: user.id,
+      role: user.role,
+      name: user.nombre,
+      foto: user.foto || null,
       loginAt: new Date().toISOString()
     };
     StorageService.saveSession(session);
@@ -3243,12 +3741,12 @@ function submitLoginAuth() {
       });
     }
 
-    showToast(`¡Bienvenido al sistema, ${profile.nombre}!`, 'success');
+    showToast(`¡Bienvenido al sistema, ${user.nombre}!`, 'success');
     pinInput.value = '';
     hideLoginError();
   } else {
     // Clave incorrecta
-    showLoginError(`Clave incorrecta para ${profile.nombre}. Intenta nuevamente.`);
+    showLoginError(`Clave incorrecta para ${user.nombre}. Intenta nuevamente.`);
   }
 }
 
@@ -3272,41 +3770,43 @@ function renderUserHeader(session) {
   if (badgeContainer) badgeContainer.classList.remove('hidden');
   if (brandBadgeGroup) brandBadgeGroup.classList.remove('hidden');
 
-  const displayName = session.name || (session.role === 'barbero' ? 'Laureano' : 'Dueño');
+  const displayName = session.name || (session.role === 'barbero' ? 'Barbero' : 'Dueño');
+  const isDueno = session.role === 'dueno';
 
-  if (session.role === 'barbero') {
-    if (avatarContainer) {
-      avatarContainer.innerHTML = `<img src="img/laureano.jpg" alt="Laureano" class="w-full h-full object-cover object-top">`;
-    }
-    if (nameEl) nameEl.textContent = displayName;
-    if (tagEl) {
-      tagEl.textContent = 'Barbero';
-      tagEl.className = 'text-[10px] px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/30 font-semibold';
-    }
-
-    if (brandIcon) brandIcon.innerHTML = `<img src="img/laureano.jpg" alt="Laureano" class="w-3.5 h-3.5 rounded-full object-cover inline-block">`;
-    if (brandName) brandName.textContent = displayName;
-    if (brandRole) {
-      brandRole.textContent = 'Barbero';
-      brandRole.className = 'text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold';
-    }
-  } else {
-    // Dueño (José o Diego)
-    if (avatarContainer) {
+  if (avatarContainer) {
+    if (session.foto) {
+      avatarContainer.innerHTML = `<img src="${session.foto}" alt="${displayName}" class="w-full h-full object-cover object-top">`;
+    } else if (isDueno) {
       avatarContainer.innerHTML = `<span class="text-sm leading-none">👑</span>`;
+    } else {
+      avatarContainer.innerHTML = `<img src="img/laureano.jpg" alt="${displayName}" class="w-full h-full object-cover object-top">`;
     }
-    if (nameEl) nameEl.textContent = displayName;
-    if (tagEl) {
-      tagEl.textContent = 'Dueño';
-      tagEl.className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold';
-    }
+  }
 
-    if (brandIcon) brandIcon.textContent = '👑';
-    if (brandName) brandName.textContent = displayName;
-    if (brandRole) {
-      brandRole.textContent = 'Dueño';
-      brandRole.className = 'text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-bold';
+  if (nameEl) nameEl.textContent = displayName;
+  if (tagEl) {
+    tagEl.textContent = isDueno ? 'Dueño' : 'Barbero';
+    tagEl.className = isDueno
+      ? 'text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold'
+      : 'text-[10px] px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/30 font-semibold';
+  }
+
+  if (brandIcon) {
+    if (session.foto) {
+      brandIcon.innerHTML = `<img src="${session.foto}" alt="${displayName}" class="w-3.5 h-3.5 rounded-full object-cover inline-block">`;
+    } else if (isDueno) {
+      brandIcon.textContent = '👑';
+    } else {
+      brandIcon.innerHTML = `<img src="img/laureano.jpg" alt="${displayName}" class="w-3.5 h-3.5 rounded-full object-cover inline-block">`;
     }
+  }
+
+  if (brandName) brandName.textContent = displayName;
+  if (brandRole) {
+    brandRole.textContent = isDueno ? 'Dueño' : 'Barbero';
+    brandRole.className = isDueno
+      ? 'text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-bold'
+      : 'text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold';
   }
 
   if (window.lucide) {
@@ -3321,18 +3821,22 @@ function applyRolePermissions(role) {
   const btnSemanal = document.getElementById('btn-tab-semanal');
   const btnCierreTab1 = document.getElementById('btnCierreCajaTab1');
   const btnCierreTabDiario = document.getElementById('btnCierreCajaTabDiario');
+  const tursoBadge = document.getElementById('tursoStatusBadge');
 
   // Permitir cierre y apertura de caja tanto al Barbero como al Dueño
   if (btnCierreTab1) btnCierreTab1.classList.remove('hidden');
   if (btnCierreTabDiario) btnCierreTabDiario.classList.remove('hidden');
 
   if (role === 'barbero') {
-    // Laureano (Barbero):
+    // Laureano u otros Barberos:
     // Permitido: Cargar Cortes, Abrir y Cerrar Caja, Clientes & Membresías VIP (alta, cobro, baja), Barberos
     // Ocultar Configuración avanzada, Historial previo y Cierre Semanal (exclusivo dueños)
     if (btnHistorial) btnHistorial.classList.add('hidden');
     if (btnConfig) btnConfig.classList.add('hidden');
     if (btnSemanal) btnSemanal.classList.add('hidden');
+
+    // Ocultar Turso Cloud COMPLETAMENTE para el perfil de barbero
+    if (tursoBadge) tursoBadge.classList.add('hidden');
 
     // Si estaba parado en pestañas protegidas, moverlo a Cargar Corte
     if (appState.currentTab === 'tab-config' || appState.currentTab === 'tab-historial' || appState.currentTab === 'tab-semanal') {
@@ -3343,6 +3847,17 @@ function applyRolePermissions(role) {
     if (btnHistorial) btnHistorial.classList.remove('hidden');
     if (btnConfig) btnConfig.classList.remove('hidden');
     if (btnSemanal) btnSemanal.classList.remove('hidden');
+
+    // Mostrar Turso Cloud para Dueño
+    if (tursoBadge) {
+      tursoBadge.classList.remove('hidden');
+      actualizarBadgeTurso();
+    }
+  }
+
+  // Refrescar permisos visuales en pestaña barberos (+ Agregar Barbero y botones de edición)
+  if (typeof actualizarLiquidacionesBarberos === 'function') {
+    actualizarLiquidacionesBarberos();
   }
 
   if (window.lucide) {
@@ -3352,10 +3867,6 @@ function applyRolePermissions(role) {
 
 // Cerrar sesión activa y regresar a la pantalla de claves
 function cerrarSesion() {
-  const prevSession = StorageService.getSession();
-  // Sugerir el otro perfil para agilizar el cambio de sesión
-  const nextRole = (prevSession && prevSession.role === 'barbero') ? 'dueno' : 'barbero';
-
   StorageService.clearSession();
 
   // Mostrar pantalla de acceso de forma inequívoca
@@ -3365,15 +3876,19 @@ function cerrarSesion() {
     loginScreen.style.display = 'flex';
   }
 
-  // Pre-seleccionar perfil y preparar campo de PIN limpio
-  seleccionarPerfilLogin(nextRole);
+  renderLoginProfiles();
 
-  // Ocultar indicadores mientras no haya sesión activa
+  const pinInput = document.getElementById('loginPinInput');
+  if (pinInput) pinInput.value = '';
+
+  // Ocultar indicadores y badge mientras no haya sesión activa
   renderUserHeader(null);
+  const tursoBadge = document.getElementById('tursoStatusBadge');
+  if (tursoBadge) tursoBadge.classList.add('hidden');
 
   // Cambiar a pestaña de mostrador
   switchTab('tab-registro');
-  showToast('Sesión cerrada. Selecciona el perfil e ingresa el PIN.', 'info');
+  showToast('Sesión cerrada. Selecciona tu perfil e ingresa el PIN.', 'info');
 }
 
 // ============================================================
@@ -3916,14 +4431,23 @@ async function eliminarTurnoConfirm(turnoId) {
 // TURSO CLOUD BLINDAJE & ESTADO EN VIVO
 // ============================================================
 function actualizarBadgeTurso() {
+  const session = StorageService.getSession();
+  const headerBadge = document.getElementById('tursoStatusBadge');
+
+  // Si el usuario conectado es Barbero, el badge de Turso NUNCA se muestra
+  if (session && session.role === 'barbero') {
+    if (headerBadge) headerBadge.classList.add('hidden');
+    return;
+  }
+
   const cloud = StorageService.getCloudStatus ? StorageService.getCloudStatus() : null;
   const isCloud = cloud && (cloud.active === true || cloud.status === 'connected');
 
-  const headerBadge = document.getElementById('tursoStatusBadge');
   const headerDot = document.getElementById('tursoStatusDot');
   const headerText = document.getElementById('tursoStatusText');
 
   if (headerBadge) {
+    headerBadge.classList.remove('hidden');
     if (isCloud) {
       headerBadge.className = 'text-xs px-2.5 py-0.5 rounded-full font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 flex items-center gap-1.5 transition-all cursor-pointer';
       if (headerDot) headerDot.className = 'w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse';
@@ -3961,6 +4485,9 @@ function actualizarBadgeTurso() {
 }
 
 function mostrarInfoTursoModal() {
+  const session = StorageService.getSession();
+  if (session && session.role === 'barbero') return; // Bloqueado para perfil barbero
+
   const cloud = StorageService.getCloudStatus ? StorageService.getCloudStatus() : null;
   const isCloud = cloud && (cloud.active === true || cloud.status === 'connected');
 
