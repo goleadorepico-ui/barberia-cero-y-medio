@@ -19,6 +19,16 @@ TURSO_TOKEN_ENV = 'TURSO_AUTH_TOKEN'
 def get_env_credentials():
     url = (os.environ.get(TURSO_URL_ENV) or '').strip()
     token = (os.environ.get(TURSO_TOKEN_ENV) or '').strip()
+    if not (url and token):
+        cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'turso_config.json')
+        if os.path.exists(cfg_file):
+            try:
+                with open(cfg_file, 'r', encoding='utf-8') as f:
+                    cfg = json.load(f)
+                    url = url or (cfg.get(TURSO_URL_ENV) or '').strip()
+                    token = token or (cfg.get(TURSO_TOKEN_ENV) or '').strip()
+            except Exception:
+                pass
     return url, token
 
 def is_turso_configured():

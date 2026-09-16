@@ -179,6 +179,7 @@ function renderAllViews() {
   }
   actualizarHeaderTotals();
   checkCajaStatus();
+  actualizarBadgeTurso();
   const currentSession = StorageService.getSession();
   if (currentSession && currentSession.role) {
     applyRolePermissions(currentSession.role);
@@ -3910,4 +3911,93 @@ async function eliminarTurnoConfirm(turnoId) {
   renderTabTurnos();
   showToast('Turno eliminado.', 'info');
 }
+
+// ============================================================
+// TURSO CLOUD BLINDAJE & ESTADO EN VIVO
+// ============================================================
+function actualizarBadgeTurso() {
+  const cloud = StorageService.getCloudStatus ? StorageService.getCloudStatus() : null;
+  const isCloud = cloud && (cloud.active === true || cloud.status === 'connected');
+
+  const headerBadge = document.getElementById('tursoStatusBadge');
+  const headerDot = document.getElementById('tursoStatusDot');
+  const headerText = document.getElementById('tursoStatusText');
+
+  if (headerBadge) {
+    if (isCloud) {
+      headerBadge.className = 'text-xs px-2.5 py-0.5 rounded-full font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 flex items-center gap-1.5 transition-all cursor-pointer';
+      if (headerDot) headerDot.className = 'w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse';
+      if (headerText) headerText.innerHTML = '☁️ Turso Cloud <span class="text-[10px] text-emerald-400 font-bold ml-0.5">● Blindado</span>';
+      headerBadge.title = 'Base de datos en la nube Turso Cloud activa. Cada corte, deuda y cliente queda blindado de por vida.';
+    } else {
+      headerBadge.className = 'text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer';
+      if (headerDot) headerDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
+      if (headerText) headerText.innerHTML = '💾 Disco Local';
+      headerBadge.title = 'Almacenamiento local en PC. Toca para ver cómo activar Turso Cloud 24/7.';
+    }
+  }
+
+  // En tab-config si existe
+  const configLabel = document.getElementById('configTursoStatusLabel');
+  const configDot = document.getElementById('configTursoDot');
+  const configBlindaje = document.getElementById('configTursoBlindajeStatus');
+  const configHost = document.getElementById('configTursoHost');
+
+  if (configLabel) {
+    if (isCloud) {
+      configLabel.textContent = 'Conectado a Turso Cloud';
+      configLabel.className = 'text-cyan-300 font-bold';
+      if (configDot) configDot.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-pulse';
+      if (configBlindaje) configBlindaje.innerHTML = '<i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i> Blindado de por vida';
+      if (configHost) configHost.textContent = cloud.host || 'Turso Cloud (24/7)';
+    } else {
+      configLabel.textContent = 'Modo Local (PC)';
+      configLabel.className = 'text-amber-400 font-bold';
+      if (configDot) configDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+      if (configBlindaje) configBlindaje.innerHTML = '<i data-lucide="hard-drive" class="w-4 h-4 text-amber-400"></i> Local en disco PC';
+      if (configHost) configHost.textContent = 'PC Local (datos_barberia.json)';
+    }
+  }
+}
+
+function mostrarInfoTursoModal() {
+  const cloud = StorageService.getCloudStatus ? StorageService.getCloudStatus() : null;
+  const isCloud = cloud && (cloud.active === true || cloud.status === 'connected');
+
+  const modal = document.getElementById('modalInfoTurso');
+  const modalSubtitle = document.getElementById('modalTursoSubtitle');
+  const modalConexion = document.getElementById('modalTursoConexion');
+  const modalTipo = document.getElementById('modalTursoTipo');
+  const modalHost = document.getElementById('modalTursoHost');
+  const modalExplanation = document.getElementById('modalTursoExplanation');
+
+  if (isCloud) {
+    if (modalSubtitle) modalSubtitle.textContent = 'Datos Blindados de por Vida en la Nube';
+    if (modalConexion) modalConexion.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Activo y Sincronizado';
+    if (modalTipo) modalTipo.textContent = 'libSQL Cloud Database (Turso)';
+    if (modalHost) modalHost.textContent = cloud.host || 'turso.io';
+    if (modalExplanation) {
+      modalExplanation.textContent = 'Cada corte, corte adeudado, cliente, membresía, barbero y balance de caja se envía directamente a tu base de datos en la nube Turso Cloud. Aunque el servidor se reinicie, se actualice o se apague la PC, tus datos permanecen protegidos 24/7 los 365 días del año.';
+    }
+  } else {
+    if (modalSubtitle) modalSubtitle.textContent = 'Operando en Modo Local (PC)';
+    if (modalConexion) modalConexion.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span> Disco Local de la PC';
+    if (modalTipo) modalTipo.textContent = 'JSON Local + Auto-Backup';
+    if (modalHost) modalHost.textContent = 'datos_barberia.json';
+    if (modalExplanation) {
+      modalExplanation.textContent = 'Tus datos se están guardando localmente en la computadora. Para conectar Turso Cloud y blindar todo de por vida 24/7 al igual que en Skynet, ejecuta "configurar_turso.bat" o añade TURSO_DATABASE_URL y TURSO_AUTH_TOKEN en Render.';
+    }
+  }
+
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function closeModalInfoTurso() {
+  const modal = document.getElementById('modalInfoTurso');
+  if (modal) modal.classList.add('hidden');
+}
+
 

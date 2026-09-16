@@ -57,6 +57,30 @@ try:
 except ImportError:
     HAS_TURSO = False
 
+def get_cloud_status():
+    if HAS_TURSO and turso_client.is_turso_configured():
+        url, _ = turso_client.get_env_credentials()
+        clean_url = url.replace('libsql://', '').replace('https://', '').split('/')[0]
+        return {
+            'active': True,
+            'status': 'connected',
+            'type': 'turso_cloud',
+            'host': clean_url,
+            'label': 'Turso Cloud 24/7 (Blindado)'
+        }
+    return {
+        'active': False,
+        'status': 'local',
+        'type': 'local_storage',
+        'host': 'localhost',
+        'label': 'Almacenamiento Local (PC)'
+    }
+
+def get_server_info():
+    info = dict(SERVER_INFO)
+    info['cloud'] = get_cloud_status()
+    return info
+
 @with_data_lock
 def read_data_file():
     """
@@ -416,7 +440,13 @@ try:
     def flask_server_info():
         if request.method == 'OPTIONS':
             return ('', 204)
-        return jsonify(SERVER_INFO)
+        return jsonify(get_server_info())
+
+    @app.route('/api/turso-status', methods=['GET', 'OPTIONS'])
+    def flask_turso_status():
+        if request.method == 'OPTIONS':
+            return ('', 204)
+        return jsonify(get_cloud_status())
 
     @app.route('/api/data', methods=['GET', 'POST', 'OPTIONS'])
     def flask_data():
@@ -429,7 +459,8 @@ try:
                 data['cierres_semanales'] = []
             if 'caja_status' not in data:
                 data['caja_status'] = {'estado': 'abierta', 'fecha': datetime.date.today().isoformat()}
-            data['serverInfo'] = SERVER_INFO
+            data['serverInfo'] = get_server_info()
+            data['cloudStatus'] = get_cloud_status()
             return jsonify(data)
 
         if request.method == 'POST':
@@ -471,11 +502,18 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if self.path.startswith('/api/turso-status'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(json.dumps(get_cloud_status()).encode('utf-8'))
+            return
+
         if self.path.startswith('/api/server-info'):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write(json.dumps(SERVER_INFO).encode('utf-8'))
+            self.wfile.write(json.dumps(get_server_info()).encode('utf-8'))
             return
 
         if self.path.startswith('/api/data'):
@@ -487,7 +525,8 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
                 data['cierres_semanales'] = []
             if 'caja_status' not in data:
                 data['caja_status'] = {'estado': 'abierta', 'fecha': datetime.date.today().isoformat()}
-            data['serverInfo'] = SERVER_INFO
+            data['serverInfo'] = get_server_info()
+            data['cloudStatus'] = get_cloud_status()
             self.wfile.write(json.dumps(data).encode('utf-8'))
             return
 

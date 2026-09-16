@@ -110,11 +110,24 @@ def run_migration():
     # Crear snapshot inicial
     client.create_snapshot(local_data, motivo='migracion_inicial')
 
+    # Guardar configuracion local para que la PC tambien guarde directo en Turso
+    cfg_file = os.path.join(BASE_DIR, 'turso_config.json')
+    try:
+        with open(cfg_file, 'w', encoding='utf-8') as f:
+            json.dump({
+                TURSO_URL_ENV: url,
+                TURSO_TOKEN_ENV: token
+            }, f, indent=2)
+        print("[*] Configuracion guardada en turso_config.json para persistencia local directa.")
+    except Exception as e:
+        pass
+
     print("\n======================================================================")
     print("      MIGRACION A TURSO CLOUD COMPLETADA CON TOTAL EXITO!             ")
     print("======================================================================")
     print("Tus datos ya estan 100% seguros y respaldados en la nube 24/7.")
-    print("Ahora puedes desplegar en Render.com configurando:")
+    print("Cada corte, deudor o cierre se guarda directamente en Turso Cloud.")
+    print("Para tener la pagina online 24/7 en Render.com, configura:")
     print(f"  TURSO_DATABASE_URL = {url}")
     print(f"  TURSO_AUTH_TOKEN    = [TU_TOKEN_SECRETO]")
     print("======================================================================\n")

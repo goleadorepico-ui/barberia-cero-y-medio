@@ -584,6 +584,15 @@ const StorageService = {
     }
   },
 
+  getCloudStatus() {
+    try {
+      const data = localStorage.getItem('barbercontrol_cloud_status');
+      return data ? JSON.parse(data) : { active: false, status: 'local', label: 'Almacenamiento Local' };
+    } catch (e) {
+      return { active: false, status: 'local', label: 'Almacenamiento Local' };
+    }
+  },
+
   // ============================================================
   // CORTES ADEUDADOS (CUENTAS CORRIENTES / FIADOS)
   // ============================================================
@@ -946,6 +955,9 @@ const StorageService = {
           // Informacion del servidor y tunel celular (Cloudflare & WiFi IP)
           if (remoteData.serverInfo) {
             localStorage.setItem('barbercontrol_server_info', JSON.stringify(remoteData.serverInfo));
+          }
+          if (remoteData.cloudStatus) {
+            localStorage.setItem('barbercontrol_cloud_status', JSON.stringify(remoteData.cloudStatus));
           }
 
           return hasRemoteChanges;

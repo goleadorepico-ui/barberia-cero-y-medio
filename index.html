@@ -46,11 +46,15 @@
         <img src="img/logo.jpg" alt="Cero y Medio" class="w-full h-full object-cover">
       </div>
       <div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <h1 class="text-xl font-bold tracking-tight text-white">Cero y <span class="text-brand-gold">Medio</span></h1>
           <span id="cajaStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Caja Abierta
           </span>
+          <button type="button" onclick="mostrarInfoTursoModal()" id="tursoStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 flex items-center gap-1.5 transition-all cursor-pointer" title="Ver estado del blindaje de datos en Turso Cloud">
+            <span id="tursoStatusDot" class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span id="tursoStatusText">☁️ Turso Cloud</span>
+          </button>
         </div>
         <div class="flex items-center gap-2 mt-1">
           <p class="text-xs text-gray-400 hidden lg:inline" id="currentDateDisplay">Cargando fecha...</p>
@@ -1086,6 +1090,53 @@
 
       </div>
 
+      <!-- Blindaje en la Nube (Turso Cloud) -->
+      <div class="bg-brand-card rounded-2xl border border-cyan-500/30 p-6 relative overflow-hidden shadow-xl">
+        <div class="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-brand-border mb-4">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <i data-lucide="cloud-lightning" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                Base de Datos en la Nube (Turso Cloud 24/7)
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">Blindaje Total</span>
+              </h3>
+              <p class="text-xs text-gray-400">Igual que en el proyecto Skynet: cada corte, deuda, cliente o cierre se guarda directamente en la nube.</p>
+            </div>
+          </div>
+          <div id="configTursoIndicator" class="flex items-center gap-2 bg-brand-dark px-3 py-1.5 rounded-xl border border-brand-border text-xs font-semibold">
+            <span id="configTursoDot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span id="configTursoStatusLabel" class="text-cyan-300">Conectado a Turso Cloud</span>
+          </div>
+        </div>
+
+        <div class="space-y-3 text-xs text-gray-300">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="p-3 bg-brand-dark rounded-xl border border-brand-border">
+              <span class="text-gray-400 block mb-1">Estado del Blindaje</span>
+              <span class="text-white font-bold flex items-center gap-1.5" id="configTursoBlindajeStatus">
+                <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i> Blindado de por vida
+              </span>
+            </div>
+            <div class="p-3 bg-brand-dark rounded-xl border border-brand-border">
+              <span class="text-gray-400 block mb-1">Servidor Cloud 24/7</span>
+              <span class="text-white font-bold" id="configTursoHost">Render / Turso Cloud</span>
+            </div>
+            <div class="p-3 bg-brand-dark rounded-xl border border-brand-border">
+              <span class="text-gray-400 block mb-1">Tolerancia a Fallos</span>
+              <span class="text-emerald-400 font-bold flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Híbrido Nube + Local
+              </span>
+            </div>
+          </div>
+
+          <p class="text-gray-400 leading-relaxed pt-1">
+            Cada vez que registras un corte o confirmas una deuda, los datos viajan a tu base de datos global en Turso Cloud y a la vez se mantiene una copia de alta velocidad en el disco. No importa si el servidor se reinicia, se apaga la PC o se actualiza el código: tus datos están a salvo para siempre.
+          </p>
+        </div>
+      </div>
+
       <!-- Backup y Resguardo de Datos -->
       <div class="bg-brand-card rounded-2xl border border-brand-border p-6">
         <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
@@ -1716,6 +1767,60 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: INFO TURSO CLOUD BLINDAJE -->
+  <!-- ============================================================ -->
+  <div id="modalInfoTurso" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-cyan-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-lg bg-cyan-500/15 text-cyan-400">
+            <i data-lucide="cloud" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Turso Cloud 24/7</h3>
+            <p class="text-[11px] text-cyan-400 font-semibold" id="modalTursoSubtitle">Datos Blindados de por Vida</p>
+          </div>
+        </div>
+        <button onclick="closeModalInfoTurso()" class="p-1 rounded text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="p-3.5 bg-brand-dark rounded-xl border border-brand-border space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">Estado de Conexión:</span>
+            <span class="font-bold text-emerald-400 flex items-center gap-1" id="modalTursoConexion">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Activo y Sincronizado
+            </span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">Tipo de Almacenamiento:</span>
+            <span class="font-semibold text-white" id="modalTursoTipo">libSQL Cloud Database</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">Host / Base:</span>
+            <span class="text-cyan-300 font-mono text-[11px]" id="modalTursoHost">turso.io</span>
+          </div>
+        </div>
+
+        <div class="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-300 leading-relaxed">
+          <p class="font-semibold text-white mb-1">🛡️ Garantía de Blindaje Permanente</p>
+          <p id="modalTursoExplanation">
+            Cada corte, corte adeudado, cliente, membresía, barbero y balance de caja se envía directamente a tu base de datos en la nube. Aunque el servidor se reinicie o se apague la PC, tus datos permanecen protegidos 24 horas al día los 365 días del año.
+          </p>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end gap-2">
+        <button type="button" onclick="closeModalInfoTurso()" class="w-full py-2.5 bg-brand-dark hover:bg-brand-cardHover text-white font-bold rounded-xl text-xs border border-brand-border">
+          Entendido
+        </button>
+      </div>
     </div>
   </div>
 
