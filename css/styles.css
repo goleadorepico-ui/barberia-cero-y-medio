@@ -25,6 +25,9 @@ body {
 /* Nav button active states */
 .nav-btn {
   color: #9CA3AF;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease-in-out;
 }
 .nav-btn:hover {
   color: #FFFFFF;

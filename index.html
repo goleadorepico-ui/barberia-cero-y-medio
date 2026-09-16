@@ -37,97 +37,58 @@
   <link rel="icon" type="image/jpeg" href="img/logo.jpg">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="bg-[#0D0E12] text-gray-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-gold selection:text-black">
+<body class="bg-[#0D0E12] text-gray-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-gold selection:text-black overflow-x-hidden">
 
   <!-- TOP NAVIGATION / HEADER -->
-  <header class="bg-brand-dark/95 backdrop-blur border-b border-brand-border sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-gold/60 shadow-lg shadow-brand-gold/20 flex-shrink-0 bg-black">
-        <img src="img/logo.jpg" alt="Cero y Medio" class="w-full h-full object-cover">
+  <header class="bg-brand-dark/95 backdrop-blur border-b border-brand-border sticky top-0 z-40 px-4 lg:px-8 py-2.5 space-y-2.5">
+    
+    <!-- FILA SUPERIOR: Marca, Totales en vivo y Usuario Activo -->
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <!-- Marca y Estados -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden border-2 border-brand-gold/60 shadow-lg shadow-brand-gold/20 flex-shrink-0 bg-black">
+          <img src="img/logo.jpg" alt="Cero y Medio" class="w-full h-full object-cover">
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-lg md:text-xl font-bold tracking-tight text-white">Cero y <span class="text-brand-gold">Medio</span></h1>
+            <span id="cajaStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Caja Abierta
+            </span>
+            <button type="button" onclick="mostrarInfoTursoModal()" id="tursoStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 flex items-center gap-1.5 transition-all cursor-pointer" title="Ver estado del blindaje de datos en Turso Cloud">
+              <span id="tursoStatusDot" class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+              <span id="tursoStatusText">☁️ Turso Cloud</span>
+            </button>
+          </div>
+          <div class="flex items-center gap-2 mt-0.5">
+            <p class="text-xs text-gray-400 hidden lg:inline" id="currentDateDisplay">Cargando fecha...</p>
+          </div>
+        </div>
       </div>
-      <div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <h1 class="text-xl font-bold tracking-tight text-white">Cero y <span class="text-brand-gold">Medio</span></h1>
-          <span id="cajaStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Caja Abierta
+
+      <!-- Live Totals Header Bar (Quick Glance) -->
+      <div class="hidden md:flex items-center gap-4 bg-brand-card px-4 py-1.5 rounded-xl border border-brand-border">
+        <div class="text-right">
+          <span class="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1 justify-end">
+            <i data-lucide="banknote" class="w-3.5 h-3.5"></i> Efectivo Hoy
           </span>
-          <button type="button" onclick="mostrarInfoTursoModal()" id="tursoStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 flex items-center gap-1.5 transition-all cursor-pointer" title="Ver estado del blindaje de datos en Turso Cloud">
-            <span id="tursoStatusDot" class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span id="tursoStatusText">☁️ Turso Cloud</span>
-          </button>
+          <span class="text-sm md:text-base font-bold text-white" id="headerCashTotal">$0</span>
         </div>
-        <div class="flex items-center gap-2 mt-1">
-          <p class="text-xs text-gray-400 hidden lg:inline" id="currentDateDisplay">Cargando fecha...</p>
+        <div class="h-6 w-[1px] bg-brand-border"></div>
+        <div class="text-right">
+          <span class="text-[11px] uppercase tracking-wider text-sky-400 font-semibold flex items-center gap-1.5 justify-end">
+            <img src="img/mercadopago.jpg" alt="Mercado Pago" class="w-4 h-4 rounded object-contain inline-block"> Mercado Pago
+          </span>
+          <span class="text-sm md:text-base font-bold text-white" id="headerMpTotal">$0</span>
+        </div>
+        <div class="h-6 w-[1px] bg-brand-border"></div>
+        <div class="text-right">
+          <span class="text-[11px] uppercase tracking-wider text-brand-gold font-semibold flex items-center gap-1 justify-end">
+            <i data-lucide="wallet" class="w-3.5 h-3.5"></i> Total Caja
+          </span>
+          <span class="text-sm md:text-base font-bold text-brand-gold" id="headerDayTotal">$0</span>
         </div>
       </div>
-    </div>
-
-    <!-- Live Totals Header Bar (Quick Glance) -->
-    <div class="hidden md:flex items-center gap-4 bg-brand-card px-4 py-2 rounded-xl border border-brand-border">
-      <div class="text-right">
-        <span class="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1 justify-end">
-          <i data-lucide="banknote" class="w-3.5 h-3.5"></i> Efectivo Hoy
-        </span>
-        <span class="text-base font-bold text-white" id="headerCashTotal">$0</span>
-      </div>
-      <div class="h-7 w-[1px] bg-brand-border"></div>
-      <div class="text-right">
-        <span class="text-[11px] uppercase tracking-wider text-sky-400 font-semibold flex items-center gap-1.5 justify-end">
-          <img src="img/mercadopago.jpg" alt="Mercado Pago" class="w-4 h-4 rounded object-contain inline-block"> Mercado Pago
-        </span>
-        <span class="text-base font-bold text-white" id="headerMpTotal">$0</span>
-      </div>
-      <div class="h-7 w-[1px] bg-brand-border"></div>
-      <div class="text-right">
-        <span class="text-[11px] uppercase tracking-wider text-brand-gold font-semibold flex items-center gap-1 justify-end">
-          <i data-lucide="wallet" class="w-3.5 h-3.5"></i> Total Caja
-        </span>
-        <span class="text-base font-bold text-brand-gold" id="headerDayTotal">$0</span>
-      </div>
-    </div>
-
-    <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-      <!-- Navigation Tabs -->
-      <nav class="flex items-center gap-1 bg-brand-card p-1 rounded-xl border border-brand-border overflow-x-auto max-w-full">
-        <button onclick="switchTab('tab-registro')" id="btn-tab-registro" class="nav-btn active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
-          <i data-lucide="plus-circle" class="w-4 h-4"></i>
-          <span>Cargar Corte</span>
-        </button>
-        <button onclick="switchTab('tab-turnos')" id="btn-tab-turnos" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
-          <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
-          <span>Turnos</span>
-          <span id="badgeTurnosPendientes" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-brand-gold text-black font-extrabold ml-0.5">0</span>
-        </button>
-        <button onclick="switchTab('tab-diario')" id="btn-tab-diario" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
-          <i data-lucide="calendar-check" class="w-4 h-4"></i>
-          <span>Caja del Día</span>
-        </button>
-        <button onclick="switchTab('tab-adeudados')" id="btn-tab-adeudados" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
-          <i data-lucide="clipboard-list" class="w-4 h-4 text-amber-400"></i>
-          <span>Cortes Adeudados</span>
-          <span id="badgeAdeudadosCount" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500 text-black font-extrabold ml-0.5">0</span>
-        </button>
-        <button onclick="switchTab('tab-clientes')" id="btn-tab-clientes" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
-          <i data-lucide="crown" class="w-4 h-4 text-brand-gold"></i>
-          <span>Clientes & Membresías</span>
-        </button>
-        <button onclick="switchTab('tab-barberos')" id="btn-tab-barberos" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
-          <i data-lucide="users" class="w-4 h-4"></i>
-          <span>Barberos</span>
-        </button>
-        <button onclick="switchTab('tab-historial')" id="btn-tab-historial" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap">
-          <i data-lucide="archive" class="w-4 h-4"></i>
-          <span>Historial</span>
-        </button>
-        <button onclick="switchTab('tab-semanal')" id="btn-tab-semanal" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap text-amber-400 hover:text-amber-300">
-          <i data-lucide="calendar-range" class="w-4 h-4 text-brand-gold"></i>
-          <span>Cierre Semanal</span>
-          <span class="text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold">Dueños</span>
-        </button>
-        <button onclick="switchTab('tab-config')" id="btn-tab-config" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" title="Configuración">
-          <i data-lucide="settings" class="w-4 h-4"></i>
-        </button>
-      </nav>
 
       <!-- Perfil Activo y Botón Cerrar Sesión -->
       <div id="userProfileHeader" class="flex items-center gap-2 ml-auto sm:ml-0">
@@ -143,6 +104,51 @@
           <span>Cerrar Sesión</span>
         </button>
       </div>
+    </div>
+
+    <!-- FILA INFERIOR: Barra de Solapas / Navegación Completa (Sin scroll horizontal) -->
+    <div class="pt-2 border-t border-brand-border/60">
+      <nav class="flex items-center flex-wrap gap-1 bg-brand-card/90 p-1.5 rounded-xl border border-brand-border w-full">
+        <button onclick="switchTab('tab-registro')" id="btn-tab-registro" class="nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Cargar Corte</span>
+        </button>
+        <button onclick="switchTab('tab-turnos')" id="btn-tab-turnos" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all">
+          <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
+          <span>Turnos</span>
+          <span id="badgeTurnosPendientes" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-brand-gold text-black font-extrabold ml-0.5">0</span>
+        </button>
+        <button onclick="switchTab('tab-diario')" id="btn-tab-diario" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all">
+          <i data-lucide="calendar-check" class="w-4 h-4"></i>
+          <span>Caja del Día</span>
+        </button>
+        <button onclick="switchTab('tab-adeudados')" id="btn-tab-adeudados" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all">
+          <i data-lucide="clipboard-list" class="w-4 h-4 text-amber-400"></i>
+          <span>Cortes Adeudados</span>
+          <span id="badgeAdeudadosCount" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500 text-black font-extrabold ml-0.5">0</span>
+        </button>
+        <button onclick="switchTab('tab-clientes')" id="btn-tab-clientes" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all">
+          <i data-lucide="crown" class="w-4 h-4 text-brand-gold"></i>
+          <span>Clientes & VIP</span>
+        </button>
+        <button onclick="switchTab('tab-barberos')" id="btn-tab-barberos" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span>Barberos</span>
+        </button>
+        <button onclick="switchTab('tab-historial')" id="btn-tab-historial" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all">
+          <i data-lucide="archive" class="w-4 h-4"></i>
+          <span>Historial</span>
+        </button>
+        <button onclick="switchTab('tab-semanal')" id="btn-tab-semanal" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all text-amber-400 hover:text-amber-300">
+          <i data-lucide="calendar-range" class="w-4 h-4 text-brand-gold"></i>
+          <span>Cierre Semanal</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold">Dueños</span>
+        </button>
+        <button onclick="switchTab('tab-config')" id="btn-tab-config" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all" title="Configuración del Sistema">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span>Configuración</span>
+        </button>
+      </nav>
     </div>
   </header>
 
