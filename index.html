@@ -58,18 +58,6 @@
         </div>
         <div class="flex items-center gap-2 mt-1">
           <p class="text-xs text-gray-400 hidden lg:inline" id="currentDateDisplay">Cargando fecha...</p>
-          <!-- Perfil Activo Badge & Botón Cambiar / Cerrar Sesión Directo -->
-          <div id="headerBrandBadgeGroup" class="flex items-center gap-1.5">
-            <div onclick="cerrarSesion()" id="headerBrandBadge" title="Toca para cambiar de sesión" class="inline-flex items-center gap-1.5 bg-brand-card hover:bg-brand-cardHover border border-brand-border px-2 py-0.5 rounded-lg text-xs font-semibold cursor-pointer">
-              <span id="headerBrandIcon">👑</span>
-              <span id="headerBrandName" class="text-white font-bold">José</span>
-              <span id="headerBrandRole" class="text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold">Dueño</span>
-            </div>
-            <button onclick="cerrarSesion()" title="Cerrar sesión actual para cambiar a otro usuario" class="inline-flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 px-2.5 py-0.5 rounded-lg transition-all active:scale-95 cursor-pointer shadow-sm">
-              <i data-lucide="log-out" class="w-3 h-3"></i>
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -138,10 +126,6 @@
         </button>
         <button onclick="switchTab('tab-config')" id="btn-tab-config" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" title="Configuración">
           <i data-lucide="settings" class="w-4 h-4"></i>
-        </button>
-        <button onclick="cerrarSesion()" id="btnNavCerrarSesion" class="nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 border border-red-500/30 transition-all whitespace-nowrap ml-1 cursor-pointer" title="Cerrar sesión actual para cambiar a otro usuario">
-          <i data-lucide="log-out" class="w-3.5 h-3.5 text-red-400"></i>
-          <span>Cerrar Sesión</span>
         </button>
       </nav>
 
@@ -1191,6 +1175,58 @@
         </div>
       </div>
 
+      <!-- Mercado Pago: Notificaciones en Vivo de Transferencias y Pagos -->
+      <div id="cardConfigMercadoPago" class="bg-brand-card rounded-2xl border border-brand-border p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-brand-border">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center flex-shrink-0 p-1.5">
+              <img src="img/mercadopago.jpg" alt="Mercado Pago" class="w-full h-full object-contain rounded">
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                Mercado Pago - Alerta de Pagos y Transferencias en Vivo
+              </h3>
+              <p class="text-xs text-gray-400">
+                Alerta sonora y ventana flotante de 4 segundos con el monto y nombre de quien pagó.
+              </p>
+            </div>
+          </div>
+          <button type="button" onclick="probarNotificacionMP()" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-md shadow-sky-500/20 self-start sm:self-auto cursor-pointer active:scale-95">
+            <i data-lucide="bell-ring" class="w-4 h-4"></i>
+            <span>🔔 Probar Sonido y Ventana (4 seg)</span>
+          </button>
+        </div>
+
+        <!-- Info & Configuración -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div class="p-3.5 bg-brand-dark rounded-xl border border-brand-border space-y-2">
+            <span class="text-gray-400 font-semibold block">URL para configurar Webhook en Mercado Pago:</span>
+            <div class="flex items-center gap-2">
+              <input type="text" id="inputMpWebhookUrl" readonly value="https://barberia-cero-y-medio.onrender.com/api/mercadopago-webhook" class="w-full bg-brand-card border border-brand-border rounded-lg px-3 py-1.5 text-xs text-sky-300 font-mono select-all">
+              <button type="button" onclick="copiarMpWebhookUrl()" class="px-3 py-1.5 bg-brand-card hover:bg-brand-cardHover border border-brand-border text-white rounded-lg font-semibold flex items-center gap-1 cursor-pointer" title="Copiar URL">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <p class="text-[10px] text-gray-500">
+              Pega esta URL en tu panel de Mercado Pago Developers en la sección "Webhooks" (evento: Pagos / Payments).
+            </p>
+          </div>
+
+          <div class="p-3.5 bg-brand-dark rounded-xl border border-brand-border space-y-2">
+            <span class="text-gray-400 font-semibold block">Access Token de Mercado Pago (Para consultar nombre y detalle):</span>
+            <div class="flex items-center gap-2">
+              <input type="password" id="inputMpAccessToken" placeholder="APP_USR-..." class="w-full bg-brand-card border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:border-brand-gold focus:outline-none">
+              <button type="button" onclick="guardarMpToken()" class="px-3 py-1.5 bg-brand-gold hover:bg-brand-goldHover text-black rounded-lg font-bold flex items-center gap-1 cursor-pointer">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar
+              </button>
+            </div>
+            <p class="text-[10px] text-gray-500">
+              Obtén tu token de Producción en <a href="https://www.mercadopago.com.ar/developers/panel/app" target="_blank" class="text-sky-400 underline">mercadopago.com.ar/developers</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Backup y Resguardo de Datos -->
       <div class="bg-brand-card rounded-2xl border border-brand-border p-6">
         <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
@@ -2110,6 +2146,45 @@
           <span>Ingresar al Sistema</span>
         </button>
       </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- NOTIFICACIÓN FLOTANTE MERCADO PAGO (PAGO EN VIVO 4 SEGUNDOS) -->
+  <!-- ============================================================ -->
+  <div id="mpNotificationPopup" class="fixed top-20 right-4 sm:right-6 z-[9999] hidden max-w-sm w-[92vw] sm:w-84 bg-[#121622]/95 border-2 border-sky-500/60 rounded-2xl p-4 shadow-2xl shadow-sky-500/30 backdrop-blur-md transition-all duration-300 transform translate-y-[-15px] opacity-0 pointer-events-auto">
+    <div class="flex items-start justify-between gap-3 pb-2 border-b border-sky-500/20">
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center p-1.5 flex-shrink-0">
+          <img src="img/mercadopago.jpg" alt="Mercado Pago" class="w-full h-full object-contain rounded">
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-sky-400">¡Pago Recibido!</span>
+          </div>
+          <p class="text-[10px] text-gray-400" id="mpNotifTipo">Mercado Pago / Transferencia</p>
+        </div>
+      </div>
+      <button type="button" onclick="cerrarNotificacionMP()" class="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+
+    <div class="py-2.5 space-y-1">
+      <div class="flex items-baseline justify-between">
+        <span class="text-xs text-gray-400 font-medium">Monto:</span>
+        <span class="text-2xl font-black text-emerald-400 tracking-tight" id="mpNotifMonto">$ 0</span>
+      </div>
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-gray-400 font-medium">De:</span>
+        <span class="font-bold text-white truncate max-w-[190px]" id="mpNotifPagador">Cliente</span>
+      </div>
+    </div>
+
+    <!-- Barra de progreso visual de 4 segundos -->
+    <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden mt-1">
+      <div id="mpNotifProgressBar" class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 w-full transition-all duration-[4000ms] ease-linear"></div>
     </div>
   </div>
 

@@ -3756,19 +3756,15 @@ function renderUserHeader(session) {
   const avatarContainer = document.getElementById('userProfileAvatarContainer');
   const nameEl = document.getElementById('userProfileName');
   const tagEl = document.getElementById('userProfileTag');
-
-  const brandBadgeGroup = document.getElementById('headerBrandBadgeGroup');
-  const brandIcon = document.getElementById('headerBrandIcon');
-  const brandName = document.getElementById('headerBrandName');
-  const brandRole = document.getElementById('headerBrandRole');
+  const btnCerrar = document.getElementById('btnCerrarSesion');
 
   if (!session) {
     if (badgeContainer) badgeContainer.classList.add('hidden');
-    if (brandBadgeGroup) brandBadgeGroup.classList.add('hidden');
+    if (btnCerrar) btnCerrar.classList.add('hidden');
     return;
   }
   if (badgeContainer) badgeContainer.classList.remove('hidden');
-  if (brandBadgeGroup) brandBadgeGroup.classList.remove('hidden');
+  if (btnCerrar) btnCerrar.classList.remove('hidden');
 
   const displayName = session.name || (session.role === 'barbero' ? 'Barbero' : 'Dueño');
   const isDueno = session.role === 'dueno';
@@ -3789,24 +3785,6 @@ function renderUserHeader(session) {
     tagEl.className = isDueno
       ? 'text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold'
       : 'text-[10px] px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/30 font-semibold';
-  }
-
-  if (brandIcon) {
-    if (session.foto) {
-      brandIcon.innerHTML = `<img src="${session.foto}" alt="${displayName}" class="w-3.5 h-3.5 rounded-full object-cover inline-block">`;
-    } else if (isDueno) {
-      brandIcon.textContent = '👑';
-    } else {
-      brandIcon.innerHTML = `<img src="img/laureano.jpg" alt="${displayName}" class="w-3.5 h-3.5 rounded-full object-cover inline-block">`;
-    }
-  }
-
-  if (brandName) brandName.textContent = displayName;
-  if (brandRole) {
-    brandRole.textContent = isDueno ? 'Dueño' : 'Barbero';
-    brandRole.className = isDueno
-      ? 'text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-bold'
-      : 'text-[10px] px-1.5 py-0.2 rounded bg-brand-gold/20 text-brand-gold font-bold';
   }
 
   if (window.lucide) {
@@ -4525,6 +4503,204 @@ function mostrarInfoTursoModal() {
 function closeModalInfoTurso() {
   const modal = document.getElementById('modalInfoTurso');
   if (modal) modal.classList.add('hidden');
+}
+
+// ============================================================
+// MERCADO PAGO - ALERTA SONORA Y POPUP FLOTANTE (4 SEGUNDOS)
+// ============================================================
+let lastSeenMpPaymentId = null;
+let mpNotifTimer = null;
+
+// Detector de eventos en vivo de pagos Mercado Pago
+window.addEventListener('barberia:mp-payment', (event) => {
+  const payment = event.detail;
+  if (!payment || !payment.id) return;
+
+  // Si es la primera vez que carga la web, memorizamos el ID para no disparar retroactivamente
+  if (lastSeenMpPaymentId === null) {
+    lastSeenMpPaymentId = payment.id;
+    return;
+  }
+
+  // Si es un pago nuevo que no habíamos visto: disparar sonido y ventana
+  if (payment.id !== lastSeenMpPaymentId) {
+    lastSeenMpPaymentId = payment.id;
+    mostrarNotificacionMP(payment);
+  }
+});
+
+// Sintetizador de sonido de campana / cobro de Mercado Pago (Web Audio API)
+function playMercadoPagoChime() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    const now = ctx.currentTime;
+
+    // Primer tono agudo (987 Hz -> Si5 ascendiendo a 1318 Hz -> Mi6)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(987.77, now);
+    osc1.frequency.exponentialRampToValueAtTime(1318.51, now + 0.12);
+
+    gain1.gain.setValueAtTime(0.001, now);
+    gain1.gain.exponentialRampToValueAtTime(0.35, now + 0.03);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.9);
+
+    // Segundo tono brillante armónico (1318 Hz ascendiendo a 1975 Hz -> Si6)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1318.51, now + 0.08);
+    osc2.frequency.exponentialRampToValueAtTime(1975.53, now + 0.22);
+
+    gain2.gain.setValueAtTime(0.001, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.28, now + 0.13);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.08);
+    osc2.stop(now + 1.3);
+
+  } catch (err) {
+    console.warn('Audio chime warning:', err);
+  }
+}
+
+// Mostrar ventana flotante durante exactamente 4 segundos
+function mostrarNotificacionMP(pago) {
+  const popup = document.getElementById('mpNotificationPopup');
+  const montoEl = document.getElementById('mpNotifMonto');
+  const pagadorEl = document.getElementById('mpNotifPagador');
+  const tipoEl = document.getElementById('mpNotifTipo');
+  const bar = document.getElementById('mpNotifProgressBar');
+
+  if (!popup || !pago) return;
+
+  if (montoEl) montoEl.textContent = formatCurrency(pago.monto || pago.transaction_amount || 0);
+  if (pagadorEl) pagadorEl.textContent = pago.pagador || 'Cliente';
+  if (tipoEl) tipoEl.textContent = pago.tipo || 'Mercado Pago / Transferencia';
+
+  // Reiniciar barra visual de progreso de 4 segundos
+  if (bar) {
+    bar.style.transition = 'none';
+    bar.style.width = '100%';
+    void bar.offsetWidth;
+    bar.style.transition = 'width 4000ms linear';
+    bar.style.width = '0%';
+  }
+
+  // Reproducir el timbre de cobro
+  playMercadoPagoChime();
+
+  // Animación de entrada suave
+  popup.classList.remove('hidden');
+  void popup.offsetWidth;
+  popup.classList.remove('translate-y-[-15px]', 'opacity-0');
+  popup.classList.add('translate-y-0', 'opacity-100');
+
+  if (window.lucide) lucide.createIcons();
+
+  // Temporizador para desaparecer a los 4 segundos exactos
+  if (mpNotifTimer) clearTimeout(mpNotifTimer);
+  mpNotifTimer = setTimeout(() => {
+    cerrarNotificacionMP();
+  }, 4000);
+}
+
+// Cerrar ventana flotante
+function cerrarNotificacionMP() {
+  const popup = document.getElementById('mpNotificationPopup');
+  if (!popup) return;
+
+  popup.classList.remove('translate-y-0', 'opacity-100');
+  popup.classList.add('translate-y-[-15px]', 'opacity-0');
+
+  setTimeout(() => {
+    popup.classList.add('hidden');
+  }, 300);
+
+  if (mpNotifTimer) {
+    clearTimeout(mpNotifTimer);
+    mpNotifTimer = null;
+  }
+}
+
+// Botón de prueba interactivo (Para escuchar el sonido y ver la ventana por 4 segundos)
+async function probarNotificacionMP() {
+  const mockPago = {
+    id: 'test-' + Date.now(),
+    monto: 8000,
+    pagador: 'Juan Pérez',
+    tipo: 'Transferencia Mercado Pago'
+  };
+
+  try {
+    if (StorageService.isServerAvailable()) {
+      await fetch('/api/mercadopago-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mockPago)
+      });
+    }
+  } catch (e) {
+    // Modo local / offline
+  }
+
+  mostrarNotificacionMP(mockPago);
+  showToast('Alerta de Mercado Pago emitida (sonido + 4 seg de ventana).', 'success');
+}
+
+// Copiar URL de Webhook para pegar en Mercado Pago Developers
+function copiarMpWebhookUrl() {
+  const input = document.getElementById('inputMpWebhookUrl');
+  if (!input) return;
+  navigator.clipboard.writeText(input.value).then(() => {
+    showToast('¡URL de Webhook copiada al portapapeles!', 'success');
+  }).catch(() => {
+    input.select();
+    document.execCommand('copy');
+    showToast('¡URL de Webhook copiada!', 'success');
+  });
+}
+
+// Guardar Access Token de Mercado Pago
+async function guardarMpToken() {
+  const input = document.getElementById('inputMpAccessToken');
+  if (!input) return;
+  const token = input.value.trim();
+
+  if (!token) {
+    showToast('Ingresa tu Access Token de Mercado Pago (APP_USR-...).', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/mercadopago-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: token })
+    });
+    if (res.ok) {
+      showToast('¡Access Token de Mercado Pago guardado exitosamente!', 'success');
+    } else {
+      showToast('No se pudo guardar en el servidor.', 'error');
+    }
+  } catch (e) {
+    showToast('Error de conexión al guardar el token.', 'error');
+  }
 }
 
 

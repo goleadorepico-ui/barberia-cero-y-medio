@@ -1052,6 +1052,11 @@ const StorageService = {
             localStorage.setItem('barbercontrol_cloud_status', JSON.stringify(remoteData.cloudStatus));
           }
 
+          // Notificación de Pago Mercado Pago en Vivo
+          if (remoteData.latestMpPayment && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('barberia:mp-payment', { detail: remoteData.latestMpPayment }));
+          }
+
           return hasRemoteChanges;
         }
       }

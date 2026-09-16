@@ -18,6 +18,8 @@ import time
 import re
 import datetime
 import functools
+import urllib.request
+import urllib.parse
 
 PORT = int(os.environ.get('PORT', 3000))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -86,6 +88,81 @@ DEFAULT_USUARIOS = [
     {'id': 'user-jose', 'nombre': 'José', 'role': 'dueno', 'pin': '1812', 'foto': None},
     {'id': 'user-diego', 'nombre': 'Diego', 'role': 'dueno', 'pin': '2626', 'foto': None}
 ]
+
+# ----------------------------------------------------------------------
+# MERCADO PAGO INTEGRATION (ALERTA DE PAGOS Y TRANSFERENCIAS EN VIVO)
+# ----------------------------------------------------------------------
+MP_CONFIG_FILE = os.path.join(BASE_DIR, 'mercadopago_config.json')
+LATEST_MP_PAYMENTS = []
+
+def get_mp_access_token():
+    token = os.environ.get('MERCADOPAGO_ACCESS_TOKEN', '').strip()
+    if token:
+        return token
+    if os.path.exists(MP_CONFIG_FILE):
+        try:
+            with open(MP_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+                return cfg.get('access_token', '').strip()
+        except Exception:
+            pass
+    return ''
+
+def save_mp_access_token(token):
+    try:
+        with open(MP_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'access_token': token.strip()}, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"[MP CONFIG ERROR] {e}")
+        return False
+
+def register_mp_payment(payment_dict):
+    global LATEST_MP_PAYMENTS
+    if not payment_dict:
+        return None
+    pid = str(payment_dict.get('id', ''))
+    if any(str(p.get('id', '')) == pid for p in LATEST_MP_PAYMENTS):
+        return None
+    LATEST_MP_PAYMENTS.append(payment_dict)
+    if len(LATEST_MP_PAYMENTS) > 20:
+        LATEST_MP_PAYMENTS = LATEST_MP_PAYMENTS[-20:]
+    return payment_dict
+
+def fetch_mp_payment_detail(payment_id, token):
+    if not token or not payment_id:
+        return None
+    url = f"https://api.mercadopago.com/v1/payments/{payment_id}"
+    req = urllib.request.Request(url, headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=7) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            payer = data.get('payer') or {}
+            first_name = payer.get('first_name') or ''
+            last_name = payer.get('last_name') or ''
+            full_name = f"{first_name} {last_name}".strip()
+            if not full_name:
+                full_name = payer.get('email') or data.get('description') or 'Cliente'
+
+            monto = data.get('transaction_amount') or 0
+            payment_type = data.get('payment_type_id') or 'Transferencia'
+            status = data.get('status')
+
+            if status == 'approved':
+                return {
+                    'id': str(data.get('id')),
+                    'monto': monto,
+                    'pagador': full_name,
+                    'tipo': f"Mercado Pago ({payment_type})",
+                    'status': status,
+                    'timestamp': time.time()
+                }
+    except Exception as e:
+        print(f"[MP API ERROR] No se pudo consultar pago {payment_id}: {e}")
+    return None
 
 @with_data_lock
 def read_data_file():
@@ -491,6 +568,8 @@ try:
                 data['caja_status'] = {'estado': 'abierta', 'fecha': datetime.date.today().isoformat()}
             data['serverInfo'] = get_server_info()
             data['cloudStatus'] = get_cloud_status()
+            data['latestMpPayment'] = LATEST_MP_PAYMENTS[-1] if LATEST_MP_PAYMENTS else None
+            data['mpConfigured'] = bool(get_mp_access_token())
             return jsonify(data)
 
         if request.method == 'POST':
@@ -500,6 +579,61 @@ try:
                 return jsonify({'success': True, 'cortesCount': len(final_data.get('cortes', []))}), 200
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/mercadopago-webhook', methods=['GET', 'POST', 'OPTIONS'])
+    def flask_mp_webhook():
+        if request.method == 'OPTIONS':
+            return ('', 204)
+        if request.method == 'GET':
+            return jsonify({'status': 'listening', 'service': 'mercadopago-webhook'}), 200
+
+        payment_id = request.args.get('id') or request.args.get('data.id')
+        incoming = request.get_json(silent=True) or {}
+        if not payment_id and isinstance(incoming, dict):
+            payment_id = incoming.get('data', {}).get('id') or incoming.get('id')
+
+        token = get_mp_access_token()
+        if payment_id and token:
+            detail = fetch_mp_payment_detail(payment_id, token)
+            if detail:
+                register_mp_payment(detail)
+        elif isinstance(incoming, dict) and incoming.get('monto'):
+            register_mp_payment({
+                'id': incoming.get('id', f'mp-{int(time.time()*1000)}'),
+                'monto': float(incoming.get('monto', 0)),
+                'pagador': incoming.get('pagador', 'Cliente'),
+                'tipo': incoming.get('tipo', 'Mercado Pago'),
+                'status': 'approved',
+                'timestamp': time.time()
+            })
+        return jsonify({'status': 'received'}), 200
+
+    @app.route('/api/mercadopago-test', methods=['GET', 'POST', 'OPTIONS'])
+    def flask_mp_test():
+        if request.method == 'OPTIONS':
+            return ('', 204)
+        incoming = request.get_json(silent=True) or {}
+        mock_p = {
+            'id': f"mp-test-{int(time.time() * 1000)}",
+            'monto': float(incoming.get('monto') or 8000),
+            'pagador': incoming.get('pagador') or 'Juan Pérez',
+            'tipo': 'Transferencia Mercado Pago',
+            'status': 'approved',
+            'timestamp': time.time()
+        }
+        register_mp_payment(mock_p)
+        return jsonify({'success': True, 'payment': mock_p}), 200
+
+    @app.route('/api/mercadopago-config', methods=['GET', 'POST', 'OPTIONS'])
+    def flask_mp_config():
+        if request.method == 'OPTIONS':
+            return ('', 204)
+        if request.method == 'POST':
+            incoming = request.get_json(silent=True) or {}
+            token = incoming.get('access_token', '').strip()
+            save_mp_access_token(token)
+            return jsonify({'success': True, 'configured': bool(token)}), 200
+        return jsonify({'configured': bool(get_mp_access_token())}), 200
 
     @app.route('/<path:filename>')
     def flask_static(filename):
@@ -559,6 +693,36 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(get_server_info()).encode('utf-8'))
             return
 
+        if self.path.startswith('/api/mercadopago-webhook'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(b'{"status":"listening","service":"mercadopago-webhook"}')
+            return
+
+        if self.path.startswith('/api/mercadopago-config'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(json.dumps({'configured': bool(get_mp_access_token())}).encode('utf-8'))
+            return
+
+        if self.path.startswith('/api/mercadopago-test'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            mock_p = {
+                'id': f"mp-test-{int(time.time() * 1000)}",
+                'monto': 8000.0,
+                'pagador': 'Juan Pérez',
+                'tipo': 'Transferencia Mercado Pago',
+                'status': 'approved',
+                'timestamp': time.time()
+            }
+            register_mp_payment(mock_p)
+            self.wfile.write(json.dumps({'success': True, 'payment': mock_p}).encode('utf-8'))
+            return
+
         if self.path.startswith('/api/data'):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -570,6 +734,8 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
                 data['caja_status'] = {'estado': 'abierta', 'fecha': datetime.date.today().isoformat()}
             data['serverInfo'] = get_server_info()
             data['cloudStatus'] = get_cloud_status()
+            data['latestMpPayment'] = LATEST_MP_PAYMENTS[-1] if LATEST_MP_PAYMENTS else None
+            data['mpConfigured'] = bool(get_mp_access_token())
             self.wfile.write(json.dumps(data).encode('utf-8'))
             return
 
@@ -589,6 +755,78 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
+        if self.path.startswith('/api/mercadopago-webhook'):
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
+            try:
+                incoming = json.loads(body) if body else {}
+            except Exception:
+                incoming = {}
+            parsed = urllib.parse.urlparse(self.path)
+            qparams = urllib.parse.parse_qs(parsed.query)
+            payment_id = (qparams.get('id') or qparams.get('data.id') or [None])[0]
+            if not payment_id and isinstance(incoming, dict):
+                payment_id = incoming.get('data', {}).get('id') or incoming.get('id')
+            token = get_mp_access_token()
+            if payment_id and token:
+                detail = fetch_mp_payment_detail(payment_id, token)
+                if detail:
+                    register_mp_payment(detail)
+            elif isinstance(incoming, dict) and incoming.get('monto'):
+                register_mp_payment({
+                    'id': incoming.get('id', f'mp-{int(time.time()*1000)}'),
+                    'monto': float(incoming.get('monto', 0)),
+                    'pagador': incoming.get('pagador', 'Cliente'),
+                    'tipo': incoming.get('tipo', 'Mercado Pago'),
+                    'status': 'approved',
+                    'timestamp': time.time()
+                })
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(b'{"status":"received"}')
+            return
+
+        if self.path.startswith('/api/mercadopago-test'):
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
+            try:
+                incoming = json.loads(body) if body else {}
+            except Exception:
+                incoming = {}
+            mock_p = {
+                'id': f"mp-test-{int(time.time() * 1000)}",
+                'monto': float(incoming.get('monto') or 8000),
+                'pagador': incoming.get('pagador') or 'Juan Pérez',
+                'tipo': 'Transferencia Mercado Pago',
+                'status': 'approved',
+                'timestamp': time.time()
+            }
+            register_mp_payment(mock_p)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(json.dumps({'success': True, 'payment': mock_p}).encode('utf-8'))
+            return
+
+        if self.path.startswith('/api/mercadopago-config'):
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
+            try:
+                incoming = json.loads(body) if body else {}
+                token = incoming.get('access_token', '').strip()
+                save_mp_access_token(token)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'configured': bool(token)}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+            return
+
         if self.path.startswith('/api/data'):
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length).decode('utf-8')
