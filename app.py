@@ -436,6 +436,13 @@ try:
     def flask_turnos():
         return send_from_directory(BASE_DIR, 'turnos.html')
 
+    @app.route('/ping', methods=['GET', 'HEAD', 'OPTIONS'])
+    @app.route('/healthz', methods=['GET', 'HEAD', 'OPTIONS'])
+    def flask_ping():
+        if request.method == 'OPTIONS':
+            return ('', 204)
+        return jsonify({'status': 'ok', 'service': 'barberia-cero-y-medio'}), 200
+
     @app.route('/api/server-info', methods=['GET', 'OPTIONS'])
     def flask_server_info():
         if request.method == 'OPTIONS':
@@ -501,7 +508,20 @@ class BarberHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.end_headers()
+
     def do_GET(self):
+        clean_path = self.path.split('?')[0].rstrip('/')
+        if clean_path in ('/ping', '/healthz'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(b'{"status":"ok","service":"barberia-cero-y-medio"}')
+            return
+
         if self.path.startswith('/api/turso-status'):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
